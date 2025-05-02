@@ -52,7 +52,7 @@ def group_close_eigval(
     /,
     *,
     atol: float | None = None,
-) -> set[set[int]]:
+) -> list[list[int]]:
     """
     Group the eigenvalues that are close to each other.
 
@@ -65,7 +65,7 @@ def group_close_eigval(
 
     Returns
     -------
-    set[set[int]]
+    list[list[int]]
         The indices of the eigenvalues that are close to each other.
 
     """
@@ -75,11 +75,11 @@ def group_close_eigval(
     eigval_dists = np.abs(eigval_[:, None] - eigval_[None, :])
     eigval_dists_close = eigval_dists < atol
     eigval_left_index = set(np.arange(eigval_.shape[0]))
-    result = set()
+    result = []
     while eigval_left_index:
         i = eigval_left_index.pop()
         close_index = eigval_dists_close[i, :].nonzero()[0]
-        s = set()
+        s = []
         for j in close_index:
             if i == j:
                 continue
@@ -90,8 +90,8 @@ def group_close_eigval(
                     "atol is too large or too small.", RuntimeWarning, stacklevel=2
                 )
                 continue
-            s.add(j)
-        result.add(s)
+            s.append(j)
+        result.append(s)
     return result
 
 
@@ -148,8 +148,7 @@ def get_multiplicity(
     groups = group_close_eigval(eigval, atol=atol)
     result: list[Multiplicity] | list[AlgebraicMultiplicity] = []
     for group in groups:
-        group_list = list(group)
-        eigvals_group = eigval[group_list]
+        eigvals_group = eigval[group]
         if eigvec is None:
             result.append(
                 AlgebraicMultiplicity(  # type: ignore
@@ -157,7 +156,7 @@ def get_multiplicity(
                 )
             )
         else:
-            eigvecs_group = eigvec[:, group_list]
+            eigvecs_group = eigvec[:, group]
             u, s, _ = np.linalg.svd(eigvecs_group)
             rank = _matrix_rank_from_s(eigvecs_group, s)
             eigvec_orthogonal = u[:, :rank]
