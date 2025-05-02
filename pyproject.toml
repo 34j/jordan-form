@@ -26,6 +26,8 @@ classifiers = [
 ]
 
 dependencies = [
+  "attrs>=25.3.0",
+  "numpy>=2.0.2",
   "rich>=10",
   "typer>=0.15,<1",
 ]
