@@ -181,12 +181,12 @@ def get_fixed_jordan_chain(A: NDArray[np.number], /) -> NDArray[np.number]:
     Parameters
     ----------
     A : NDArray[np.number]
-        The matrix derivatives of shape (multiplicity, n, n).
+        The matrix derivatives of shape (l_chain, n, n).
 
     Returns
     -------
     NDArray[np.number]
-        The Jordan chains of shape (n_jordan_chain, multiplicity, n).
+        The Jordan chains of shape (n_chain, l_chain, n).
 
     """
     m = A.shape[0]
@@ -218,7 +218,33 @@ def get_fixed_jordan_chain(A: NDArray[np.number], /) -> NDArray[np.number]:
     chain = np.moveaxis(chain, -1, 0)
     # (n_jordan_chain, m, n)
     chain = chain.reshape(chain.shape[0], m, n)
+    chain = chain / np.clip(
+        np.linalg.norm(chain[:, [0], :], axis=-1, keepdims=True),
+        np.finfo(chain.dtype).eps,
+        None,
+    )
     return chain
+
+
+def proj(a_from: NDArray[np.number], a_to: NDArray[np.number], /) -> NDArray[np.number]:
+    """
+    Project a_from to a_to.
+
+    Parameters
+    ----------
+    a_from : NDArray[np.number]
+        The vector to be projected of shape (..., n).
+    a_to : NDArray[np.number]
+        The vector space to project to of shape (..., n, n_dim).
+
+    Returns
+    -------
+    NDArray[np.number]
+        The projected vector of shape (..., n).
+
+    """
+    a_to = a_to / np.linalg.norm(a_to, axis=-2, keepdims=True)
+    return np.sum(np.dot(a_from, a_to) * a_to, axis=-1)
 
 
 def get_canonoicaljordan_chain(
@@ -253,28 +279,68 @@ def get_canonoicaljordan_chain(
     -------
     list[NDArray[np.number]]
         The Jordan chains.
+        (-l_chain)-th element has Jordan chains of length l_chain
+        of shape (n_chain, l_chain, n).
 
     """
-    chains = []
+    chains: list[NDArray[np.number]] = []
     for i in range(A.shape[0], 0, -1):
         A = A[:i, :, :]
         chain = get_fixed_jordan_chain(A)
+        if chains:
+            cut_chain = _get_space(chains, i)
+            # [n_chain_cut, l_chain, n]
+            # [n_chain, n], [1, n_chain_cut, n] -> [n_chain, n_chain_cut]
+            d = np.sum(chain[:, None, 0, :] * cut_chain[None, :, 0, :], axis=-1)
+            # [n_chain, l_chain, n]
+            chain = chain - np.sum(
+                d[:, :, None, None] * cut_chain[None, :, :, :], axis=1
+            )
+        # svd, remove duplicated chains
         chain = np.swapaxes(chain, 0, 1)
         u, s, _ = np.linalg.svd(chain[0, :, :], hermitian=hermitian)
         rank = _matrix_rank_from_s(chain[0, :, :], s, tol=tol, rtol=rtol)
         chain = u.T[:rank] @ chain
         chain = np.swapaxes(chain, 0, 1)
-        chains.append(chain)
+        if chain.size:
+            chains.append(chain)
     return chains
 
 
-get_canonoicaljordan_chain(
+def _get_space(
+    chains: list[NDArray[np.number]],
+    length: int,
+    /,
+) -> NDArray[np.number]:
+    """
+    Get the cut chains.
+
+    Parameters
+    ----------
+    chains : list[NDArray[np.number]]
+        The Jordan chains.
+    length : int
+        The length to cut.
+
+    Returns
+    -------
+    NDArray[np.number]
+        The cut chains of shape (n_chain, l_chain, n).
+
+    """
+    res = np.concat([chains_[:, :length, :] for chains_ in chains], axis=0)
+    return res
+
+
+chainss = get_canonoicaljordan_chain(
     np.asarray(
         [
             [[0, 1, 0], [0, 0, 0], [0, 0, 0]],
             [[0, 0, 0], [0, 1, 0], [0, 0, 1]],
             [[2, 0, 0], [0, 0, 0], [0, 0, 0]],
             np.zeros((3, 3)),
+            np.zeros((3, 3)),
         ]
     )
 )
+print(chainss)
