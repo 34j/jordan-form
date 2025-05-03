@@ -4,6 +4,10 @@ from typing import Any
 
 import attrs
 import numpy as np
+import scipy
+import scipy.sparse
+import scipy.special
+from numpy.typing import NDArray
 
 
 @attrs.frozen(kw_only=True)
@@ -168,3 +172,109 @@ def get_multiplicity(
                 )
             )
     return result
+
+
+def get_fixed_jordan_chain(A: NDArray[np.number], /) -> NDArray[np.number]:
+    """
+    Get the Jordans chain of the matrix of fixed length.
+
+    Parameters
+    ----------
+    A : NDArray[np.number]
+        The matrix derivatives of shape (multiplicity, n, n).
+
+    Returns
+    -------
+    NDArray[np.number]
+        The Jordan chains of shape (n_jordan_chain, multiplicity, n).
+
+    """
+    m = A.shape[0]
+    n = A.shape[1]
+    mat = np.stack(
+        [
+            np.moveaxis(
+                np.concat(
+                    (
+                        np.flip(
+                            A[: j + 1, :, :]
+                            / scipy.special.factorial(np.arange(j + 1)[:, None, None]),
+                            axis=0,
+                        ),
+                        np.zeros((m - j - 1, n, n), dtype=A.dtype, device=A.device),
+                    ),
+                    axis=0,
+                ),
+                0,
+                1,
+            ).reshape(n, m * n)
+            for j in range(m)
+        ],
+        axis=0,
+    ).reshape(m * n, m * n)
+    # (m*n, n_jordan_chain)
+    chain = scipy.linalg.null_space(mat)
+    # (n_jordan_chain, m*n)
+    chain = np.moveaxis(chain, -1, 0)
+    # (n_jordan_chain, m, n)
+    chain = chain.reshape(chain.shape[0], m, n)
+    return chain
+
+
+def get_canonoicaljordan_chain(
+    A: NDArray[np.number],
+    /,
+    *,
+    hermitian: bool | None = None,
+    tol: float | None = None,
+    rtol: float | None = None,
+) -> list[NDArray[np.number]]:
+    """
+    Get the Jordan chains of the matrix.
+
+    Parameters
+    ----------
+    A : NDArray[np.number]
+        The matrix derivatives of shape (multiplicity, n, n).
+    tol : (...) array_like, float, optional
+        Threshold below which SVD values are considered zero. If `tol` is
+        None, and ``S`` is an array with singular values for `M`, and
+        ``eps`` is the epsilon value for datatype of ``S``, then `tol` is
+        set to ``S.max() * max(M, N) * eps``.
+    hermitian : bool, optional
+        If True, `A` is assumed to be Hermitian (symmetric if real-valued),
+        enabling a more efficient method for finding singular values.
+        Defaults to False.
+    rtol : (...) array_like, float, optional
+        Parameter for the relative tolerance component. Only ``tol`` or
+        ``rtol`` can be set at a time. Defaults to ``max(M, N) * eps``.
+
+    Returns
+    -------
+    list[NDArray[np.number]]
+        The Jordan chains.
+
+    """
+    chains = []
+    for i in range(A.shape[0], 0, -1):
+        A = A[:i, :, :]
+        chain = get_fixed_jordan_chain(A)
+        chain = np.swapaxes(chain, 0, 1)
+        u, s, _ = np.linalg.svd(chain[0, :, :], hermitian=hermitian)
+        rank = _matrix_rank_from_s(chain[0, :, :], s, tol=tol, rtol=rtol)
+        chain = u.T[:rank] @ chain
+        chain = np.swapaxes(chain, 0, 1)
+        chains.append(chain)
+    return chains
+
+
+get_canonoicaljordan_chain(
+    np.asarray(
+        [
+            [[0, 1, 0], [0, 0, 0], [0, 0, 0]],
+            [[0, 0, 0], [0, 1, 0], [0, 0, 1]],
+            [[2, 0, 0], [0, 0, 0], [0, 0, 0]],
+            np.zeros((3, 3)),
+        ]
+    )
+)
