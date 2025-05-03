@@ -74,7 +74,7 @@ def group_close_eigval(
 
     """
     if atol is None:
-        atol = 0
+        atol = np.finfo(eigval[0].dtype).eps
     eigval_ = np.asarray(eigval)
     eigval_dists = np.abs(eigval_[:, None] - eigval_[None, :])
     eigval_dists_close = eigval_dists < atol
@@ -86,7 +86,7 @@ def group_close_eigval(
         s = []
         for j in close_index:
             if i == j:
-                continue
+                pass
             elif j in eigval_left_index:
                 eigval_left_index.remove(j)
             else:
@@ -117,7 +117,9 @@ def get_multiplicity(
     eigvec: np.ndarray[tuple[int], np.dtype[np.number]] | None = None,
     /,
     *,
-    atol: float | None = None,
+    atol_algebraic: float | None = None,
+    tol_geometric: float | None = None,
+    rtol_geometric: float | None = None,
 ) -> list[Multiplicity] | list[AlgebraicMultiplicity]:
     """
     Get the multiplicity of the eigenvalue.
@@ -130,8 +132,20 @@ def get_multiplicity(
         The eigenvalues of shape (n_eig,).
     eigvec : Array | NativeArray | None, optional
         The eigenvectors of shape (n, n_eig), by default None.
-    atol : float | None, optional
+    atol_algebraic : float | None, optional
         The threshold to treat eigenvalues as the same.
+    tol : (...) array_like, float, optional
+        Threshold below which SVD values are considered zero. If `tol` is
+        None, and ``S`` is an array with singular values for `M`, and
+        ``eps`` is the epsilon value for datatype of ``S``, then `tol` is
+        set to ``S.max() * max(M, N) * eps``.
+    hermitian : bool, optional
+        If True, `A` is assumed to be Hermitian (symmetric if real-valued),
+        enabling a more efficient method for finding singular values.
+        Defaults to False.
+    rtol : (...) array_like, float, optional
+        Parameter for the relative tolerance component. Only ``tol`` or
+        ``rtol`` can be set at a time. Defaults to ``max(M, N) * eps``.
 
     Returns
     -------
@@ -139,7 +153,6 @@ def get_multiplicity(
         The multiplicity of the eigenvalue.
 
     """
-    atol = atol or 0
     if eigval.ndim != 1:
         raise ValueError("eigval should be 1D array.")
     if eigvec is not None:
@@ -149,7 +162,7 @@ def get_multiplicity(
             raise ValueError(
                 f"{eigval.shape[0]=} should be equal to {eigvec.shape[1]=}."
             )
-    groups = group_close_eigval(eigval, atol=atol)
+    groups = group_close_eigval(eigval, atol=atol_algebraic)
     result: list[Multiplicity] | list[AlgebraicMultiplicity] = []
     for group in groups:
         eigvals_group = eigval[group]
@@ -162,7 +175,9 @@ def get_multiplicity(
         else:
             eigvecs_group = eigvec[:, group]
             u, s, _ = np.linalg.svd(eigvecs_group)
-            rank = _matrix_rank_from_s(eigvecs_group, s)
+            rank = _matrix_rank_from_s(
+                eigvecs_group, s, tol=tol_geometric, rtol=rtol_geometric
+            )
             eigvec_orthogonal = u[:, :rank]
             result.append(
                 Multiplicity(
@@ -171,6 +186,13 @@ def get_multiplicity(
                     eigvec_orthogonal=eigvec_orthogonal,
                 )
             )
+    if eigvec is None:
+        result.sort(key=lambda x: x.algebraic_multiplicity, reverse=True)
+    else:
+        result.sort(
+            key=lambda x: (x.algebraic_multiplicity, x.geometric_multiplicity),
+            reverse=True,
+        )
     return result
 
 
@@ -218,11 +240,6 @@ def get_fixed_jordan_chain(A: NDArray[np.number], /) -> NDArray[np.number]:
     chain = np.moveaxis(chain, -1, 0)
     # (n_jordan_chain, m, n)
     chain = chain.reshape(chain.shape[0], m, n)
-    chain = chain / np.clip(
-        np.linalg.norm(chain[:, [0], :], axis=-1, keepdims=True),
-        np.finfo(chain.dtype).eps,
-        None,
-    )
     return chain
 
 
@@ -247,13 +264,14 @@ def proj(a_from: NDArray[np.number], a_to: NDArray[np.number], /) -> NDArray[np.
     return np.sum(np.dot(a_from, a_to) * a_to, axis=-1)
 
 
-def get_canonoicaljordan_chain(
+def get_canonoical_jordan_chain(
     A: NDArray[np.number],
     /,
     *,
     hermitian: bool | None = None,
     tol: float | None = None,
     rtol: float | None = None,
+    flatten: bool = True,
 ) -> list[NDArray[np.number]]:
     """
     Get the Jordan chains of the matrix.
@@ -274,6 +292,8 @@ def get_canonoicaljordan_chain(
     rtol : (...) array_like, float, optional
         Parameter for the relative tolerance component. Only ``tol`` or
         ``rtol`` can be set at a time. Defaults to ``max(M, N) * eps``.
+    flatten : bool, optional
+        If True, flatten the chains. Defaults to True.
 
     Returns
     -------
@@ -287,6 +307,13 @@ def get_canonoicaljordan_chain(
     for i in range(A.shape[0], 0, -1):
         A = A[:i, :, :]
         chain = get_fixed_jordan_chain(A)
+        # filter and normalize based on the first element
+        chain = chain[
+            np.linalg.norm(chain[:, 0, :], axis=-1) > np.finfo(chain.dtype).eps
+        ]
+        chain = chain / np.linalg.norm(chain[:, [0], :], axis=-1, keepdims=True)
+        if not chain.size:
+            continue
         if chains:
             cut_chain = _get_space(chains, i)
             # [n_chain_cut, l_chain, n]
@@ -304,6 +331,8 @@ def get_canonoicaljordan_chain(
         chain = np.swapaxes(chain, 0, 1)
         if chain.size:
             chains.append(chain)
+    if flatten:
+        chains = [c for chain_ in chains for c in chain_]
     return chains
 
 
@@ -330,17 +359,3 @@ def _get_space(
     """
     res = np.concat([chains_[:, :length, :] for chains_ in chains], axis=0)
     return res
-
-
-chainss = get_canonoicaljordan_chain(
-    np.asarray(
-        [
-            [[0, 1, 0], [0, 0, 0], [0, 0, 0]],
-            [[0, 0, 0], [0, 1, 0], [0, 0, 1]],
-            [[2, 0, 0], [0, 0, 0], [0, 0, 0]],
-            np.zeros((3, 3)),
-            np.zeros((3, 3)),
-        ]
-    )
-)
-print(chainss)
