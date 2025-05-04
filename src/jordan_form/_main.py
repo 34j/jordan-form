@@ -1,6 +1,6 @@
 import warnings
 from collections.abc import Sequence
-from typing import Any, overload
+from typing import overload
 
 import attrs
 import numpy as np
@@ -99,17 +99,30 @@ def group_close_eigval(
     return result
 
 
-def _matrix_rank_from_s(A: Any, S: Any, /, *, tol: Any = None, rtol: Any = None) -> Any:
-    if tol is None:
-        if rtol is None:
-            rtol = max(A.shape[-2:]) * np.finfo(S.dtype).eps
-        else:
-            rtol = np.asarray(rtol)[..., None]
-        tol = np.max(S, axis=-1, keepdims=True) * rtol
-    else:
-        tol = np.asarray(tol)[..., None]
+def get_tol(
+    base: NDArray[np.floating],
+    /,
+    *,
+    rtol: NDArray[np.floating] | None = None,
+    atol: NDArray[np.floating] | None = None,
+) -> NDArray[np.floating]:
+    if rtol is None:
+        rtol = np.finfo(base.dtype).eps
+    if atol is None:
+        atol = np.finfo(base.dtype).eps
+    return rtol * np.abs(base) + atol
 
-    return np.count_nonzero(S > tol, axis=-1)
+
+def _matrix_rank_from_s(
+    M: NDArray[np.number],
+    s: NDArray[np.floating],
+    /,
+    *,
+    atol: NDArray[np.floating] | None = None,
+    rtol: NDArray[np.floating] | None = None,
+) -> int:
+    tol = get_tol(s.max() * max(M.shape[-2:]), rtol=rtol, atol=atol)
+    return np.count_nonzero(s > tol, axis=-1)
 
 
 @overload
@@ -119,7 +132,7 @@ def get_multiplicity(
     /,
     *,
     atol_algebraic: float | None = ...,
-    tol_geometric: float | None = ...,
+    atol_geometric: float | None = ...,
     rtol_geometric: float | None = ...,
 ) -> list[Multiplicity]: ...
 @overload
@@ -129,7 +142,7 @@ def get_multiplicity(  # type: ignore
     /,
     *,
     atol_algebraic: float | None = ...,
-    tol_geometric: float | None = ...,
+    atol_geometric: float | None = ...,
     rtol_geometric: float | None = ...,
 ) -> list[AlgebraicMultiplicity]: ...
 def get_multiplicity(
@@ -138,7 +151,7 @@ def get_multiplicity(
     /,
     *,
     atol_algebraic: float | None = None,
-    tol_geometric: float | None = None,
+    atol_geometric: float | None = None,
     rtol_geometric: float | None = None,
 ) -> list[Multiplicity] | list[AlgebraicMultiplicity]:
     """
@@ -154,14 +167,12 @@ def get_multiplicity(
         The eigenvectors of shape (n, n_eig), by default None.
     atol_algebraic : float | None, optional
         The threshold to treat eigenvalues as the same.
-    tol_geometric : (...) array_like, float, optional
-        Threshold below which SVD values are considered zero. If `tol` is
-        None, and ``S`` is an array with singular values for `M`, and
-        ``eps`` is the epsilon value for datatype of ``S``, then `tol` is
-        set to ``S.max() * max(M, N) * eps``.
-    rtol_geometric : (...) array_like, float, optional
-        Parameter for the relative tolerance component. Only ``tol`` or
-        ``rtol`` can be set at a time. Defaults to ``max(M, N) * eps``.
+    atol_geometric : float, optional
+        Threshold below which SVD values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
+    rtol_geometric : float, optional
+        Threshold below which SVD values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
 
     Returns
     -------
@@ -192,7 +203,7 @@ def get_multiplicity(
             eigvecs_group = eigvec[:, group]
             u, s, _ = np.linalg.svd(eigvecs_group)
             rank = _matrix_rank_from_s(
-                eigvecs_group, s, tol=tol_geometric, rtol=rtol_geometric
+                eigvecs_group, s, atol=atol_geometric, rtol=rtol_geometric
             )
             eigvec_orthogonal = u[:, :rank]
             result.append(
@@ -285,8 +296,10 @@ def get_canonoical_jordan_chain(
     /,
     *,
     hermitian: bool | None = None,
-    tol: float | None = None,
-    rtol: float | None = None,
+    atol_rank: float | None = None,
+    rtol_rank: float | None = None,
+    atol_norm: float | None = None,
+    rtol_norm: float | None = None,
     flatten: bool = True,
 ) -> list[NDArray[np.number]]:
     """
@@ -296,18 +309,22 @@ def get_canonoical_jordan_chain(
     ----------
     A : NDArray[np.number]
         The matrix derivatives of shape (multiplicity, n, n).
-    tol : (...) array_like, float, optional
-        Threshold below which SVD values are considered zero. If `tol` is
-        None, and ``S`` is an array with singular values for `M`, and
-        ``eps`` is the epsilon value for datatype of ``S``, then `tol` is
-        set to ``S.max() * max(M, N) * eps``.
     hermitian : bool, optional
         If True, `A` is assumed to be Hermitian (symmetric if real-valued),
         enabling a more efficient method for finding singular values.
         Defaults to False.
-    rtol : (...) array_like, float, optional
-        Parameter for the relative tolerance component. Only ``tol`` or
-        ``rtol`` can be set at a time. Defaults to ``max(M, N) * eps``.
+    atol_rank : float, optional
+        Threshold below which SVD values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
+    rtol_rank : float, optional
+        Threshold below which SVD values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
+    atol_norm : float, optional
+        Threshold below which norm values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
+    rtol_norm : float, optional
+        Threshold below which norm values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
     flatten : bool, optional
         If True, flatten the chains. Defaults to True.
 
@@ -324,10 +341,10 @@ def get_canonoical_jordan_chain(
         A = A[:i, :, :]
         chain = get_fixed_jordan_chain(A)
         # filter and normalize based on the first element
-        chain = chain[
-            np.linalg.norm(chain[:, 0, :], axis=-1) > np.finfo(chain.dtype).eps
-        ]
-        chain = chain / np.linalg.norm(chain[:, [0], :], axis=-1, keepdims=True)
+        norm = np.linalg.norm(chain[:, 0, :], axis=-1)
+        norm_filter = norm > get_tol(np.max(norm), rtol=rtol_norm, atol=atol_norm)
+        chain = chain[norm_filter, :, :]
+        chain = chain / norm[norm_filter, None, None]
         if not chain.size:
             continue
         if chains:
@@ -342,7 +359,7 @@ def get_canonoical_jordan_chain(
         # svd, remove duplicated chains
         chain = np.swapaxes(chain, 0, 1)
         u, s, _ = np.linalg.svd(chain[0, :, :], hermitian=hermitian)
-        rank = _matrix_rank_from_s(chain[0, :, :], s, tol=tol, rtol=rtol)
+        rank = _matrix_rank_from_s(chain[0, :, :], s, atol=atol_rank, rtol=rtol_rank)
         chain = u.T[:rank] @ chain
         chain = np.swapaxes(chain, 0, 1)
         if chain.size:
