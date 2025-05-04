@@ -51,8 +51,8 @@ class Multiplicity(AlgebraicMultiplicity):
         return self.eigvec_orthogonal.shape[1]
 
 
-def group_close_eigval(
-    eigval: Sequence[float],
+def group_close_eigvals(
+    eigvals: Sequence[float],
     /,
     *,
     atol: float | None = None,
@@ -63,7 +63,7 @@ def group_close_eigval(
 
     Parameters
     ----------
-    eigval : Sequence[float]
+    eigvals : Sequence[float]
         The eigenvalues.
     atol : float | None, optional
         The threshold to treat eigenvalues as the same.
@@ -78,7 +78,7 @@ def group_close_eigval(
         The indices of the eigenvalues that are close to each other.
 
     """
-    eigval_ = np.asarray(eigval)
+    eigval_ = np.asarray(eigvals)
     tol = get_tol(eigval_.max(), rtol=rtol, atol=atol)
     eigval_dists = np.abs(eigval_[:, None] - eigval_[None, :])
     eigval_dists_close = eigval_dists < tol
@@ -130,9 +130,9 @@ def _matrix_rank_from_s(
 
 
 @overload
-def get_multiplicity(
-    eigval: NDArray[np.number],
-    eigvec: NDArray[np.number] = ...,
+def multiplicity(
+    eigvals: NDArray[np.number],
+    eigvecs: NDArray[np.number] = ...,
     /,
     *,
     atol_algebraic: float | None = ...,
@@ -141,9 +141,9 @@ def get_multiplicity(
     rtol_geometric: float | None = ...,
 ) -> list[Multiplicity]: ...
 @overload
-def get_multiplicity(  # type: ignore
-    eigval: NDArray[np.number],
-    eigvec: None = ...,
+def multiplicity(  # type: ignore
+    eigvals: NDArray[np.number],
+    eigvecs: None = ...,
     /,
     *,
     atol_algebraic: float | None = ...,
@@ -151,9 +151,9 @@ def get_multiplicity(  # type: ignore
     atol_geometric: float | None = ...,
     rtol_geometric: float | None = ...,
 ) -> list[AlgebraicMultiplicity]: ...
-def get_multiplicity(
-    eigval: np.ndarray[tuple[int], np.dtype[np.number]],
-    eigvec: np.ndarray[tuple[int], np.dtype[np.number]] | None = None,
+def multiplicity(
+    eigvals: np.ndarray[tuple[int], np.dtype[np.number]],
+    eigvecs: np.ndarray[tuple[int], np.dtype[np.number]] | None = None,
     /,
     *,
     atol_algebraic: float | None = None,
@@ -168,9 +168,9 @@ def get_multiplicity(
 
     Parameters
     ----------
-    eigval : Array | NativeArray
+    eigvals : Array | NativeArray
         The eigenvalues of shape (n_eig,).
-    eigvec : Array | NativeArray | None, optional
+    eigvecs : Array | NativeArray | None, optional
         The eigenvectors of shape (n, n_eig), by default None.
     atol_algebraic : float | None, optional
         The threshold to treat eigenvalues as the same.
@@ -191,27 +191,27 @@ def get_multiplicity(
         The multiplicity of the eigenvalue.
 
     """
-    if eigval.ndim != 1:
+    if eigvals.ndim != 1:
         raise ValueError("eigval should be 1D array.")
-    if eigvec is not None:
-        if eigvec.ndim != 2:
+    if eigvecs is not None:
+        if eigvecs.ndim != 2:
             raise ValueError("eigvec should be 2D array.")
-        if eigval.shape[0] != eigvec.shape[1]:
+        if eigvals.shape[0] != eigvecs.shape[1]:
             raise ValueError(
-                f"{eigval.shape[0]=} should be equal to {eigvec.shape[1]=}."
+                f"{eigvals.shape[0]=} should be equal to {eigvecs.shape[1]=}."
             )
-    groups = group_close_eigval(eigval, atol=atol_algebraic, rtol=rtol_algebraic)
+    groups = group_close_eigvals(eigvals, atol=atol_algebraic, rtol=rtol_algebraic)
     result: list[Multiplicity] | list[AlgebraicMultiplicity] = []
     for group in groups:
-        eigvals_group = eigval[group]
-        if eigvec is None:
+        eigvals_group = eigvals[group]
+        if eigvecs is None:
             result.append(
                 AlgebraicMultiplicity(  # type: ignore
                     eigvals=eigvals_group,
                 )
             )
         else:
-            eigvecs_group = eigvec[:, group]
+            eigvecs_group = eigvecs[:, group]
             u, s, _ = np.linalg.svd(eigvecs_group)
             rank = _matrix_rank_from_s(
                 eigvecs_group, s, atol=atol_geometric, rtol=rtol_geometric
@@ -224,7 +224,7 @@ def get_multiplicity(
                     eigvec_orthogonal=eigvec_orthogonal,
                 )
             )
-    if eigvec is None:
+    if eigvecs is None:
         result.sort(key=lambda x: x.algebraic_multiplicity, reverse=True)
     else:
         result.sort(
@@ -234,7 +234,7 @@ def get_multiplicity(
     return result
 
 
-def get_fixed_jordan_chain(A: NDArray[np.number], /) -> NDArray[np.number]:
+def fixed_jordan_chains(A: NDArray[np.number], /) -> NDArray[np.number]:
     """
     Get the Jordans chain of the matrix of fixed length.
 
@@ -302,7 +302,7 @@ def proj(a_from: NDArray[np.number], a_to: NDArray[np.number], /) -> NDArray[np.
     return np.sum(np.dot(a_from, a_to) * a_to, axis=-1)
 
 
-def get_canonoical_jordan_chain(
+def canonoical_jordan_chains(
     A: NDArray[np.number],
     /,
     *,
@@ -350,7 +350,7 @@ def get_canonoical_jordan_chain(
     chains: list[NDArray[np.number]] = []
     for i in range(A.shape[0], 0, -1):
         A = A[:i, :, :]
-        chain = get_fixed_jordan_chain(A)
+        chain = fixed_jordan_chains(A)
         # filter and normalize based on the first element
         norm = np.linalg.norm(chain[:, 0, :], axis=-1)
         norm_filter = norm > get_tol(np.max(norm), rtol=rtol_norm, atol=atol_norm)
