@@ -1,3 +1,5 @@
+import warnings
+from collections.abc import Sequence
 from typing import Any, Literal, Protocol, overload
 
 import attrs
@@ -115,7 +117,10 @@ class JordanChains(AlgebraicMultiplicity):
 
 
 def fixed_jordan_chains(
-    A: np.ndarray[tuple[int, int, int], np.dtype[np.number]], /
+    A: np.ndarray[tuple[int, int, int], np.dtype[np.number]],
+    /,
+    atol: float | None = None,
+    rtol: float | None = None,
 ) -> np.ndarray[tuple[int, int, int], np.dtype[np.number]]:
     """
     Get the Jordans chain of the matrix of fixed length.
@@ -125,6 +130,12 @@ def fixed_jordan_chains(
     A : np.ndarray[tuple[int, int, int], np.dtype[np.number]]
         The matrix derivatives evaluated at the eigenvalue
         of shape (l_chain, n, n).
+    atol : float | None, optional
+        Threshold below which SVD values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
+    rtol : float | None, optional
+        Threshold below which SVD values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
 
     Returns
     -------
@@ -132,6 +143,7 @@ def fixed_jordan_chains(
         The Jordan chains of shape (n_chain, l_chain, n).
 
     """
+    tol = get_tol(np.max(A), rtol=rtol, atol=atol)
     m = A.shape[0]
     n = A.shape[1]
     mat = np.stack(
@@ -156,7 +168,7 @@ def fixed_jordan_chains(
         axis=0,
     ).reshape(m * n, m * n)
     # (m*n, n_jordan_chain)
-    chain = scipy.linalg.null_space(mat)
+    chain = scipy.linalg.null_space(mat, tol)
     # (n_jordan_chain, m*n)
     chain = np.moveaxis(chain, -1, 0)
     # (n_jordan_chain, m, n)
@@ -265,7 +277,7 @@ def canonoical_jordan_chains(
     chains: list[NDArray[np.number]] = []
     for i in range(A.shape[0], 0, -1):
         A = A[:i, :, :]
-        chain = fixed_jordan_chains(A)
+        chain = fixed_jordan_chains(A, atol=atol_rank, rtol=rtol_rank)
         # filter and normalize based on the first element
         norm = np.linalg.norm(chain[:, 0, :], axis=-1)
         norm_filter = norm > get_tol(np.max(norm), rtol=rtol_norm, atol=atol_norm)
@@ -300,7 +312,7 @@ class MatrixFuncProtocol(Protocol):
         self,
         eigval: float,
         derv: int,
-    ) -> NDArray[np.number]:
+    ) -> np.ndarray[tuple[int, int], np.dtype[np.number]] | None:
         """
         Evaluate the matrix function at the eigenvalues.
 
@@ -346,20 +358,24 @@ def geig_func(
     """
     B_ = B if B is not None else np.eye(A.shape[0])
 
-    def inner(eigval: float, derv: int) -> NDArray[np.number]:
+    def inner(
+        eigval: float, derv: int
+    ) -> np.ndarray[tuple[int, int], np.dtype[np.number]] | None:
+        derv = int(derv)
         if derv == 0:
             return A - eigval * B_
         elif derv == 1:
             return -B_
         elif derv > 1:
             return np.zeros_like(A)
+        raise ValueError(f"Invalid derivative {derv=}. ")
 
     return inner
 
 
 def all_canonical_jordan_chains(
     A: MatrixFuncProtocol,
-    multiplicities: list[AlgebraicMultiplicity],
+    multiplicities: Sequence[AlgebraicMultiplicity],
     /,
     **kwargs: Any,
 ) -> list[JordanChains]:
@@ -384,14 +400,23 @@ def all_canonical_jordan_chains(
     results = []
     for multiplicity in multiplicities:
         derivatives = []
+        chains = []
         for i in range(multiplicity.algebraic_multiplicity):
-            try:
-                derivatives.append(A(multiplicity.eigval, i + 1))
-            except Exception:
+            derivative = A(multiplicity.eigval, i)
+            if derivative is None:
                 break
+            derivatives.append(derivative)
             chains = canonoical_jordan_chains(np.stack(derivatives, axis=0), **kwargs)
             n_generalized_eigenvectors = np.sum([c.shape[0] for c in chains])
             if n_generalized_eigenvectors >= multiplicity.algebraic_multiplicity:
+                if n_generalized_eigenvectors > multiplicity.algebraic_multiplicity:
+                    warnings.warn(
+                        "The number of generalized eigenvectors found "
+                        "is greater than the algebraic multiplicity. "
+                        "Consider using a larger value for `atol` or `rtol`.",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
                 break
         results.append(
             JordanChains(

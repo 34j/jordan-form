@@ -1,6 +1,12 @@
 import numpy as np
 
-from jordan_form import canonoical_jordan_chains, group_close_eigvals, multiplicity
+from jordan_form import (
+    all_canonical_jordan_chains,
+    canonoical_jordan_chains,
+    geig_func,
+    group_close_eigvals,
+    multiplicity,
+)
 
 
 def test_ordinary():
@@ -10,7 +16,9 @@ def test_ordinary():
     multiplicities = multiplicity(
         eigval,
         eigvec,
+        atol_algebraic=1e-3,
         rtol_algebraic=1e-3,
+        atol_geometric=1e-3,
         rtol_geometric=1e-3,
     )
     assert multiplicities[0].algebraic_multiplicity == 10
@@ -23,11 +31,22 @@ def test_ordinary():
                 axis=0,
             ),
             rtol_norm=1e-3,
+            rtol_rank=1e-3,
             atol_norm=1e-3,
+            atol_rank=1e-3,
         )
         for m in multiplicities
     ]
     assert [c.shape[0] for c in chains[0]] == [4, 3, 2, 1]
+    chains_all = all_canonical_jordan_chains(
+        geig_func(A),
+        multiplicities,
+        rtol_norm=1e-3,
+        rtol_rank=1e-3,
+        atol_norm=1e-3,
+        atol_rank=1e-3,
+    )
+    print(chains_all)
 
 
 # chainss = get_canonoicaljordan_chain(
