@@ -19,8 +19,8 @@ def test_ordinary():
     )
     assert multiplicities[0].algebraic_multiplicity == 10
     assert multiplicities[0].geometric_multiplicity == 4
-    for m in multiplicities:
-        chain = get_canonoical_jordan_chain(
+    chains = [
+        get_canonoical_jordan_chain(
             np.stack(
                 [A - m.eigval * np.eye(A.shape[0]), -np.eye(A.shape[0])]
                 + [np.zeros_like(A) for _ in range(2)],
@@ -29,7 +29,9 @@ def test_ordinary():
             rtol_norm=1e-3,
             atol_norm=1e-3,
         )
-        print(chain)
+        for m in multiplicities
+    ]
+    assert [c.shape[0] for c in chains[0]] == [4, 3, 2, 1]
 
 
 # chainss = get_canonoicaljordan_chain(
