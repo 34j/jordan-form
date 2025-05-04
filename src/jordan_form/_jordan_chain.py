@@ -35,7 +35,7 @@ class JordanChains(AlgebraicMultiplicity):
         https://doi.org/10.5687/iscie.15.320
 
         """
-        return np.asarray(c.shape[0] for c in self.chains)
+        return np.asarray([c.shape[0] for c in self.chains])
 
     @property
     def dim_ith_generalized_eigenvectors(
@@ -143,7 +143,6 @@ def fixed_jordan_chains(
         The Jordan chains of shape (n_chain, l_chain, n).
 
     """
-    tol = get_tol(np.max(A), rtol=rtol, atol=atol)
     m = A.shape[0]
     n = A.shape[1]
     mat = np.stack(
@@ -168,7 +167,7 @@ def fixed_jordan_chains(
         axis=0,
     ).reshape(m * n, m * n)
     # (m*n, n_jordan_chain)
-    chain = scipy.linalg.null_space(mat, tol)
+    chain = scipy.linalg.null_space(mat, rtol)
     # (n_jordan_chain, m*n)
     chain = np.moveaxis(chain, -1, 0)
     # (n_jordan_chain, m, n)
@@ -278,11 +277,11 @@ def canonoical_jordan_chains(
     for i in range(A.shape[0], 0, -1):
         A = A[:i, :, :]
         chain = fixed_jordan_chains(A, atol=atol_rank, rtol=rtol_rank)
-        # filter and normalize based on the first element
+        # filter chains which first eigenvector's norm is too small
         norm = np.linalg.norm(chain[:, 0, :], axis=-1)
         norm_filter = norm > get_tol(np.max(norm), rtol=rtol_norm, atol=atol_norm)
         chain = chain[norm_filter, :, :]
-        chain = chain / norm[norm_filter, None, None]
+        # chain = chain / norm[norm_filter, None, None]
         if not chain.size:
             continue
         if chains:
@@ -300,6 +299,9 @@ def canonoical_jordan_chains(
         rank = _matrix_rank_from_s(chain[0, :, :], s, atol=atol_rank, rtol=rtol_rank)
         chain = u.T[:rank] @ chain
         chain = np.swapaxes(chain, 0, 1)
+        # normalize chains based on the first eigenvector
+        norm = np.linalg.norm(chain[:, 0, :], axis=-1)
+        chain = chain / norm[:, None, None]
         if chain.size:
             chains.append(chain)
     if flatten:
@@ -312,6 +314,7 @@ class MatrixFuncProtocol(Protocol):
         self,
         eigval: float,
         derv: int,
+        /,
     ) -> np.ndarray[tuple[int, int], np.dtype[np.number]] | None:
         """
         Evaluate the matrix function at the eigenvalues.
