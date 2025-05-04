@@ -1,6 +1,6 @@
 import warnings
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, overload
 
 import attrs
 import numpy as np
@@ -73,9 +73,9 @@ def group_close_eigval(
         The indices of the eigenvalues that are close to each other.
 
     """
-    if atol is None:
-        atol = np.finfo(eigval[0].dtype).eps
     eigval_ = np.asarray(eigval)
+    if atol is None:
+        atol = np.finfo(eigval_.dtype).eps
     eigval_dists = np.abs(eigval_[:, None] - eigval_[None, :])
     eigval_dists_close = eigval_dists < atol
     eigval_left_index = set(np.arange(eigval_.shape[0]))
@@ -112,6 +112,26 @@ def _matrix_rank_from_s(A: Any, S: Any, /, *, tol: Any = None, rtol: Any = None)
     return np.count_nonzero(S > tol, axis=-1)
 
 
+@overload
+def get_multiplicity(
+    eigval: NDArray[np.number],
+    eigvec: NDArray[np.number] = ...,
+    /,
+    *,
+    atol_algebraic: float | None = ...,
+    tol_geometric: float | None = ...,
+    rtol_geometric: float | None = ...,
+) -> list[Multiplicity]: ...
+@overload
+def get_multiplicity(  # type: ignore
+    eigval: NDArray[np.number],
+    eigvec: None = ...,
+    /,
+    *,
+    atol_algebraic: float | None = ...,
+    tol_geometric: float | None = ...,
+    rtol_geometric: float | None = ...,
+) -> list[AlgebraicMultiplicity]: ...
 def get_multiplicity(
     eigval: np.ndarray[tuple[int], np.dtype[np.number]],
     eigvec: np.ndarray[tuple[int], np.dtype[np.number]] | None = None,
@@ -134,16 +154,12 @@ def get_multiplicity(
         The eigenvectors of shape (n, n_eig), by default None.
     atol_algebraic : float | None, optional
         The threshold to treat eigenvalues as the same.
-    tol : (...) array_like, float, optional
+    tol_geometric : (...) array_like, float, optional
         Threshold below which SVD values are considered zero. If `tol` is
         None, and ``S`` is an array with singular values for `M`, and
         ``eps`` is the epsilon value for datatype of ``S``, then `tol` is
         set to ``S.max() * max(M, N) * eps``.
-    hermitian : bool, optional
-        If True, `A` is assumed to be Hermitian (symmetric if real-valued),
-        enabling a more efficient method for finding singular values.
-        Defaults to False.
-    rtol : (...) array_like, float, optional
+    rtol_geometric : (...) array_like, float, optional
         Parameter for the relative tolerance component. Only ``tol`` or
         ``rtol`` can be set at a time. Defaults to ``max(M, N) * eps``.
 
@@ -190,7 +206,7 @@ def get_multiplicity(
         result.sort(key=lambda x: x.algebraic_multiplicity, reverse=True)
     else:
         result.sort(
-            key=lambda x: (x.algebraic_multiplicity, x.geometric_multiplicity),
+            key=lambda x: (x.algebraic_multiplicity, x.geometric_multiplicity),  # type: ignore
             reverse=True,
         )
     return result
