@@ -1,10 +1,6 @@
 import numpy as np
 
-from jordan_form._main import (
-    canonoical_jordan_chains,
-    group_close_eigvals,
-    multiplicity,
-)
+from jordan_form import canonoical_jordan_chains, group_close_eigvals, multiplicity
 
 
 def test_ordinary():
