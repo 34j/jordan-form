@@ -1,4 +1,4 @@
-from typing import Literal, overload
+from typing import Any, Literal, Protocol, overload
 
 import attrs
 import numpy as np
@@ -7,14 +7,14 @@ import scipy.special
 from numpy.typing import NDArray
 
 from jordan_form._multiplicity import (
-    Multiplicity,
+    AlgebraicMultiplicity,
     _matrix_rank_from_s,
     get_tol,
 )
 
 
 @attrs.frozen(kw_only=True)
-class JordanChains(Multiplicity):
+class JordanChains(AlgebraicMultiplicity):
     chains: list[np.ndarray[tuple[int, int], np.dtype[np.number]]]
     """The Jordan chains of shape (l_chain, n)."""
 
@@ -87,6 +87,32 @@ class JordanChains(Multiplicity):
         """
         return np.cumsum(self.dim_ith_generalized_eigenvectors)
 
+    @property
+    def num_chains(self) -> int:
+        """The number of Jordan chains."""
+        return len(self.chains)
+
+    @property
+    def num_generalized_eigenvectors(self) -> int:
+        """The number of generalized eigenvectors."""
+        return np.sum(self.dim_ith_generalized_eigenvectors)
+
+    @property
+    def eigvec_orthogonal(self) -> np.ndarray[tuple[int, int], np.dtype[np.number]]:
+        """The orthogonal eigenvectors of shape (n, geometric_multiplicity)."""
+        return np.stack([c[0, :] for c in self.chains], axis=1)
+
+    @property
+    def geometric_multiplicity(self) -> int:
+        """
+        The geometric multiplicity of the eigenvalue.
+
+        The dimension of the eigenspace of the eigenvalue.
+        Less than or equal to the algebraic multiplicity.
+
+        """
+        return self.eigvec_orthogonal.shape[1]
+
 
 def fixed_jordan_chains(
     A: np.ndarray[tuple[int, int, int], np.dtype[np.number]], /
@@ -136,27 +162,6 @@ def fixed_jordan_chains(
     # (n_jordan_chain, m, n)
     chain = chain.reshape(chain.shape[0], m, n)
     return chain
-
-
-def proj(a_from: NDArray[np.number], a_to: NDArray[np.number], /) -> NDArray[np.number]:
-    """
-    Project a_from to a_to.
-
-    Parameters
-    ----------
-    a_from : NDArray[np.number]
-        The vector to be projected of shape (..., n).
-    a_to : NDArray[np.number]
-        The vector space to project to of shape (..., n, n_dim).
-
-    Returns
-    -------
-    NDArray[np.number]
-        The projected vector of shape (..., n).
-
-    """
-    a_to = a_to / np.linalg.norm(a_to, axis=-2, keepdims=True)
-    return np.sum(np.dot(a_from, a_to) * a_to, axis=-1)
 
 
 def _get_space(
@@ -288,3 +293,110 @@ def canonoical_jordan_chains(
     if flatten:
         chains = [c for chain_ in chains for c in chain_]
     return chains
+
+
+class MatrixFuncProtocol(Protocol):
+    def __call__(
+        self,
+        eigval: float,
+        derv: int,
+    ) -> NDArray[np.number]:
+        """
+        Evaluate the matrix function at the eigenvalues.
+
+        Parameters
+        ----------
+        eigval : NDArray[np.number]
+            The eigenvalue.
+        derv : int
+            Maximum derivative.
+
+        Returns
+        -------
+        NDArray[np.number]
+            The (derv)-th derivative of
+            matrix function of shape (n, n).
+
+        """
+        ...
+
+
+def geig_func(
+    A: np.ndarray[tuple[int, int], np.dtype[np.number]],
+    B: np.ndarray[tuple[int, int], np.dtype[np.number]] | None = None,
+    /,
+) -> MatrixFuncProtocol:
+    """
+    Create a generalized eigenvalue function.
+
+    Parameters
+    ----------
+    A : NDArray[np.number]
+        The matrix A of shape (n, n).
+    B : NDArray[np.number], optional
+        The matrix B of shape (n, n), by default None.
+        If None, the identity matrix is used.
+        (oridanary eigenvalue problem)
+
+    Returns
+    -------
+    MatrixFuncProtocol
+        The matrix function λ→(A-Bλ) where (A-Bλ) is of shape (n, n).
+
+    """
+    B_ = B if B is not None else np.eye(A.shape[0])
+
+    def inner(eigval: float, derv: int) -> NDArray[np.number]:
+        if derv == 0:
+            return A - eigval * B_
+        elif derv == 1:
+            return -B_
+        elif derv > 1:
+            return np.zeros_like(A)
+
+    return inner
+
+
+def all_canonical_jordan_chains(
+    A: MatrixFuncProtocol,
+    multiplicities: list[AlgebraicMultiplicity],
+    /,
+    **kwargs: Any,
+) -> list[JordanChains]:
+    """
+    Get the canonical Jordan chains of the matrix function.
+
+    Parameters
+    ----------
+    A : MatrixFuncProtocol
+        The matrix function.
+    multiplicities : list[Multiplicity]
+        The multiplicities of the eigenvalues.
+    **kwargs : Any
+        Additional arguments to pass to `canonoical_jordan_chains`.
+
+    Returns
+    -------
+    list[JordanChains]
+        The canonical Jordan chains of the matrix function.
+
+    """
+    results = []
+    for multiplicity in multiplicities:
+        derivatives = []
+        for i in range(multiplicity.algebraic_multiplicity):
+            try:
+                derivatives.append(A(multiplicity.eigval, i + 1))
+            except Exception:
+                break
+            chains = canonoical_jordan_chains(np.stack(derivatives, axis=0), **kwargs)
+            n_generalized_eigenvectors = np.sum([c.shape[0] for c in chains])
+            if n_generalized_eigenvectors >= multiplicity.algebraic_multiplicity:
+                break
+        results.append(
+            JordanChains(
+                eigvals=multiplicity.eigvals,
+                chains=chains,
+            )
+        )
+    return results
