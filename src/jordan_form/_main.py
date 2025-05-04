@@ -56,6 +56,7 @@ def group_close_eigval(
     /,
     *,
     atol: float | None = None,
+    rtol: float | None = None,
 ) -> list[list[int]]:
     """
     Group the eigenvalues that are close to each other.
@@ -66,6 +67,10 @@ def group_close_eigval(
         The eigenvalues.
     atol : float | None, optional
         The threshold to treat eigenvalues as the same.
+        Defaults to ``np.finfo(eigval.dtype).eps``.
+    rtol : float | None, optional
+        The threshold to treat eigenvalues as the same.
+        Defaults to ``np.finfo(eigval.dtype).eps``.
 
     Returns
     -------
@@ -74,10 +79,9 @@ def group_close_eigval(
 
     """
     eigval_ = np.asarray(eigval)
-    if atol is None:
-        atol = np.finfo(eigval_.dtype).eps
+    tol = get_tol(eigval_.max(), rtol=rtol, atol=atol)
     eigval_dists = np.abs(eigval_[:, None] - eigval_[None, :])
-    eigval_dists_close = eigval_dists < atol
+    eigval_dists_close = eigval_dists < tol
     eigval_left_index = set(np.arange(eigval_.shape[0]))
     result = []
     while eigval_left_index:
@@ -132,6 +136,7 @@ def get_multiplicity(
     /,
     *,
     atol_algebraic: float | None = ...,
+    rtol_algebraic: float | None = ...,
     atol_geometric: float | None = ...,
     rtol_geometric: float | None = ...,
 ) -> list[Multiplicity]: ...
@@ -142,6 +147,7 @@ def get_multiplicity(  # type: ignore
     /,
     *,
     atol_algebraic: float | None = ...,
+    rtol_algebraic: float | None = ...,
     atol_geometric: float | None = ...,
     rtol_geometric: float | None = ...,
 ) -> list[AlgebraicMultiplicity]: ...
@@ -151,6 +157,7 @@ def get_multiplicity(
     /,
     *,
     atol_algebraic: float | None = None,
+    rtol_algebraic: float | None = None,
     atol_geometric: float | None = None,
     rtol_geometric: float | None = None,
 ) -> list[Multiplicity] | list[AlgebraicMultiplicity]:
@@ -167,6 +174,10 @@ def get_multiplicity(
         The eigenvectors of shape (n, n_eig), by default None.
     atol_algebraic : float | None, optional
         The threshold to treat eigenvalues as the same.
+        Defaults to ``np.finfo(eigval.dtype).eps``.
+    rtol_algebraic : float | None, optional
+        The threshold to treat eigenvalues as the same.
+        Defaults to ``np.finfo(eigval.dtype).eps``.
     atol_geometric : float, optional
         Threshold below which SVD values are considered zero.
         Defaults to ``np.finfo(A.dtype).eps``.
@@ -189,7 +200,7 @@ def get_multiplicity(
             raise ValueError(
                 f"{eigval.shape[0]=} should be equal to {eigvec.shape[1]=}."
             )
-    groups = group_close_eigval(eigval, atol=atol_algebraic)
+    groups = group_close_eigval(eigval, atol=atol_algebraic, rtol=rtol_algebraic)
     result: list[Multiplicity] | list[AlgebraicMultiplicity] = []
     for group in groups:
         eigvals_group = eigval[group]
