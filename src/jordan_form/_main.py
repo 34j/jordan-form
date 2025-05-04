@@ -5,7 +5,6 @@ from typing import overload
 import attrs
 import numpy as np
 import scipy
-import scipy.sparse
 import scipy.special
 from numpy.typing import NDArray
 
