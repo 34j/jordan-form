@@ -4,6 +4,7 @@ from ._jordan_chain import (
     canonical_jordan_chains,
     canonoical_jordan_chains_from_unrestricted,
     geig_func,
+    sympy_func,
 )
 from ._multiplicity import (
     AlgebraicMultiplicity,
@@ -21,4 +22,5 @@ __all__ = [
     "geig_func",
     "group_close_eigvals",
     "multiplicity",
+    "sympy_func",
 ]

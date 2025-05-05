@@ -26,8 +26,6 @@ def plot_eigval_with_multiplicity(
     ----------
     multiplicities : Sequence[Tultiplicity]
         The multiplicities to plot.
-    atol: float | None, optional
-        The threshold to treat eigenvalues as the same.
     ax : plt.Axes | None, optional
         The axes to plot, by default None.
     text_filter : Callable[[TMultiplicity], bool] | None, optional

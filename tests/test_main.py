@@ -8,6 +8,7 @@ from jordan_form import (
     geig_func,
     group_close_eigvals,
     multiplicity,
+    sympy_func,
 )
 from jordan_form.plot import plot_eigval_with_multiplicity
 
@@ -27,7 +28,7 @@ def test_ordinary():
     )
     assert multiplicities[0].algebraic_multiplicity == 10
     assert multiplicities[0].geometric_multiplicity == 4
-    chains_all = canonical_jordan_chains(
+    chains = canonical_jordan_chains(
         geig_func(A),
         multiplicities[0].eigval,
         rtol_norm=1e-3,
@@ -36,7 +37,7 @@ def test_ordinary():
         atol_rank=1e-3,
         algebraic_multiplicity=multiplicities[0].algebraic_multiplicity,
     )
-    assert list(chains_all.chain_lengths) == [4, 3, 2, 1]
+    assert list(chains.chain_lengths) == [4, 3, 2, 1]
 
 
 def test_complicated_ordinary():
@@ -60,8 +61,8 @@ def test_complicated_ordinary():
         atol_geometric=1e-3,
         rtol_geometric=1e-3,
     )
-    print(multiplicities[0].geometric_multiplicity)
-    chains_all = canonical_jordan_chains(
+    assert multiplicities[0].geometric_multiplicity == 2
+    chains = canonical_jordan_chains(
         geig_func(A),
         multiplicities[0].eigval,
         rtol_norm=1e-3,
@@ -70,7 +71,7 @@ def test_complicated_ordinary():
         atol_rank=1e-3,
         algebraic_multiplicity=multiplicities[0].algebraic_multiplicity,
     )
-    assert list(chains_all.chain_lengths) == [3, 2]
+    assert list(chains.chain_lengths) == [3, 2]
 
 
 @pytest.mark.parametrize("pass_eigvec", [True, False])
@@ -105,22 +106,26 @@ def test_plot(pass_eigvec: bool) -> None:
     plt.close(fig)
 
 
-def test_nonlinear():
-    def f(
-        eigval: float, derv: int, /
-    ) -> np.ndarray[tuple[int, int], np.dtype[np.number]] | None:
-        x = sp.symbols("x")
-        mat = sp.Matrix([[x**2, 1, 0], [0, x, 0], [0, 0, x]])
-        mat_deriv = sp.diff(mat, x, derv)
-        return np.array(mat_deriv.subs(x, eigval)).astype(np.float64)
-
-    chains_all = canonical_jordan_chains(
-        f,
-        0,
+@pytest.mark.parametrize("wrong_eigval", [True, False])
+def test_nonlinear(wrong_eigval: bool) -> None:
+    x = sp.symbols("x")
+    mat = sp.Matrix([[x**2, 1, 0], [0, x, 0], [0, 0, x]])
+    if wrong_eigval:
+        multiplicity(
+            np.empty(0),
+            np.empty((3, 0)),
+            atol_algebraic=1e-3,
+            rtol_algebraic=1e-3,
+            atol_geometric=1e-3,
+            rtol_geometric=1e-3,
+        )
+    chains = canonical_jordan_chains(
+        sympy_func(mat),
+        1 if wrong_eigval else 0,
         rtol_norm=1e-3,
         rtol_rank=1e-3,
         atol_norm=1e-3,
         atol_rank=1e-3,
         algebraic_multiplicity=4,
     )
-    print(chains_all)
+    assert list(chains.chain_lengths) == [] if wrong_eigval else [3, 1]

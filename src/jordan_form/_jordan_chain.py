@@ -1,5 +1,5 @@
 import warnings
-from typing import Literal, Protocol, overload
+from typing import Any, Literal, Protocol, overload
 
 import attrs
 import numpy as np
@@ -37,7 +37,9 @@ class CanonicalJordanChains(MultiplicityProtocol):
         https://doi.org/10.5687/iscie.15.320
 
         """
-        return np.asarray([c.shape[0] for c in self.chains])
+        if len(self.chains) == 0:
+            return np.empty((0,), dtype=np.int_)
+        return np.stack([c.shape[0] for c in self.chains])
 
     @property
     def dim_ith_generalized_eigenvectors(
@@ -60,9 +62,12 @@ class CanonicalJordanChains(MultiplicityProtocol):
         https://doi.org/10.5687/iscie.15.320
 
         """
+        if len(self.chains) == 0:
+            return np.empty((0,), dtype=np.int_)
         chain_lengths = self.chain_lengths
         return np.count_nonzero(
-            chain_lengths[:, None] >= np.arange(chain_lengths.max())[:, None], axis=0
+            chain_lengths[:, None] >= np.arange(chain_lengths.max())[None, :] + 1,
+            axis=0,
         )
 
     @property
@@ -89,6 +94,8 @@ class CanonicalJordanChains(MultiplicityProtocol):
         https://doi.org/10.5687/iscie.15.320
 
         """
+        if len(self.chains) == 0:
+            return np.empty((0,), dtype=np.int_)
         return np.cumsum(self.dim_ith_generalized_eigenvectors)
 
     @property
@@ -98,10 +105,12 @@ class CanonicalJordanChains(MultiplicityProtocol):
 
     @property
     def algebraic_multiplicity(self) -> int:
-        return np.sum(self.dim_ith_generalized_eigenvectors)
+        return np.sum(self.chain_lengths, dtype=np.int_)
 
     @property
     def eigvec_orthogonal(self) -> np.ndarray[tuple[int, int], np.dtype[np.number]]:
+        if len(self.chains) == 0:
+            return np.empty((0, 0), dtype=np.float64)
         return np.stack([c[0, :] for c in self.chains], axis=1)
 
     @property
@@ -172,6 +181,30 @@ def geig_func(
         elif derv > 1:
             return np.zeros_like(A)
         raise ValueError(f"Invalid derivative {derv=}. ")
+
+    return inner
+
+
+def sympy_func(A: Any) -> MatrixFuncProtocol:
+    """
+    Create a sympy matrix function.
+
+    Parameters
+    ----------
+    A : Any
+        The sympy matrix.
+
+    Returns
+    -------
+    MatrixFuncProtocol
+        The matrix function λ→A(λ).
+
+    """
+
+    def inner(
+        eigval: float, derv: int
+    ) -> np.ndarray[tuple[int, int], np.dtype[np.number]] | None:
+        return np.asarray(A.diff("x", derv).subs("x", eigval), dtype=float)
 
     return inner
 
@@ -423,7 +456,6 @@ def canonoical_jordan_chains_from_unrestricted(
     chains: list[NDArray[np.number]] = []
     for chain in reversed(unrestricted_chains):
         # filter chains which first eigenvector's norm is too small
-        print(chain.shape)
         norm = np.linalg.norm(chain[:, 0, :], axis=-1)
         norm_filter = norm > get_tol(np.max(norm), rtol=rtol_norm, atol=atol_norm)
         chain = chain[norm_filter, :, :]

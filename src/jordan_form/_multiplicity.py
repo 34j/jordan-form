@@ -112,6 +112,8 @@ def group_close_eigvals(
         The indices of the eigenvalues that are close to each other.
 
     """
+    if len(eigvals) == 0:
+        return []
     eigval_ = np.asarray(eigvals)
     tol = get_tol(eigval_.max(), rtol=rtol, atol=atol)
     eigval_dists = np.abs(eigval_[:, None] - eigval_[None, :])
