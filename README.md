@@ -46,6 +46,11 @@ Install this via pip (or your favourite package manager):
 
 `pip install jordan-form`
 
+## References
+
+- ["canonical set of Jordan chains" - Google Search](https://www.google.com/search?q=%22canonical+set+of+Jordan+chains%22)
+- [Nonlinear Eivenvalue Problems](https://www.mat.tuhh.de/forschung/rep/rep174.pdf)
+
 ## Contributors ✨
 
 Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):

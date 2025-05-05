@@ -1,6 +1,5 @@
 import warnings
-from collections.abc import Sequence
-from typing import Any, Literal, Protocol, overload
+from typing import Literal, Protocol, overload
 
 import attrs
 import numpy as np
@@ -116,199 +115,6 @@ class JordanChains(AlgebraicMultiplicity):
         return self.eigvec_orthogonal.shape[1]
 
 
-def fixed_jordan_chains(
-    A: np.ndarray[tuple[int, int, int], np.dtype[np.number]],
-    /,
-    atol: float | None = None,
-    rtol: float | None = None,
-) -> np.ndarray[tuple[int, int, int], np.dtype[np.number]]:
-    """
-    Get the Jordans chain of the matrix of fixed length.
-
-    Parameters
-    ----------
-    A : np.ndarray[tuple[int, int, int], np.dtype[np.number]]
-        The matrix derivatives evaluated at the eigenvalue
-        of shape (l_chain, n, n).
-    atol : float | None, optional
-        Threshold below which SVD values are considered zero.
-        Defaults to ``np.finfo(A.dtype).eps``.
-    rtol : float | None, optional
-        Threshold below which SVD values are considered zero.
-        Defaults to ``np.finfo(A.dtype).eps``.
-
-    Returns
-    -------
-    np.ndarray[tuple[int, int, int], np.dtype[np.number]]
-        The Jordan chains of shape (n_chain, l_chain, n).
-
-    """
-    m = A.shape[0]
-    n = A.shape[1]
-    mat = np.stack(
-        [
-            np.moveaxis(
-                np.concat(
-                    (
-                        np.flip(
-                            A[: j + 1, :, :]
-                            / scipy.special.factorial(np.arange(j + 1)[:, None, None]),
-                            axis=0,
-                        ),
-                        np.zeros((m - j - 1, n, n), dtype=A.dtype, device=A.device),
-                    ),
-                    axis=0,
-                ),
-                0,
-                1,
-            ).reshape(n, m * n)
-            for j in range(m)
-        ],
-        axis=0,
-    ).reshape(m * n, m * n)
-    # (m*n, n_jordan_chain)
-    chain = scipy.linalg.null_space(mat, rtol)
-    # (n_jordan_chain, m*n)
-    chain = np.moveaxis(chain, -1, 0)
-    # (n_jordan_chain, m, n)
-    chain = chain.reshape(chain.shape[0], m, n)
-    return chain
-
-
-def _get_space(
-    chains: list[NDArray[np.number]],
-    length: int,
-    /,
-) -> NDArray[np.number]:
-    """
-    Get the cut chains.
-
-    Parameters
-    ----------
-    chains : list[NDArray[np.number]]
-        The Jordan chains.
-    length : int
-        The length to cut.
-
-    Returns
-    -------
-    NDArray[np.number]
-        The cut chains of shape (n_chain, l_chain, n).
-
-    """
-    res = np.concat([chains_[:, :length, :] for chains_ in chains], axis=0)
-    return res
-
-
-@overload
-def canonoical_jordan_chains(
-    A: np.ndarray[tuple[int, int, int], np.dtype[np.number]],
-    /,
-    *,
-    hermitian: bool | None = ...,
-    atol_rank: float | None = ...,
-    rtol_rank: float | None = ...,
-    atol_norm: float | None = ...,
-    rtol_norm: float | None = ...,
-    flatten: Literal[False] = ...,
-) -> list[np.ndarray[tuple[int, int, int], np.dtype[np.number]]]: ...
-@overload
-def canonoical_jordan_chains(
-    A: np.ndarray[tuple[int, int, int], np.dtype[np.number]],
-    /,
-    *,
-    hermitian: bool | None = ...,
-    atol_rank: float | None = ...,
-    rtol_rank: float | None = ...,
-    atol_norm: float | None = ...,
-    rtol_norm: float | None = ...,
-    flatten: Literal[True] = ...,
-) -> list[np.ndarray[tuple[int, int], np.dtype[np.number]]]: ...
-def canonoical_jordan_chains(
-    A: np.ndarray[tuple[int, int, int], np.dtype[np.number]],
-    /,
-    *,
-    hermitian: bool | None = None,
-    atol_rank: float | None = None,
-    rtol_rank: float | None = None,
-    atol_norm: float | None = None,
-    rtol_norm: float | None = None,
-    flatten: bool = True,
-) -> (
-    list[np.ndarray[tuple[int, int], np.dtype[np.number]]]
-    | list[np.ndarray[tuple[int, int, int], np.dtype[np.number]]]
-):
-    """
-    Get the Jordan chains of the matrix.
-
-    Parameters
-    ----------
-    A : np.ndarray[tuple[int, int, int], np.dtype[np.number]]
-        The matrix derivatives evaluated at the eigenvalue
-        of shape (max_l_chain, n, n).
-    hermitian : bool, optional
-        If True, `A` is assumed to be Hermitian (symmetric if real-valued),
-        enabling a more efficient method for finding singular values.
-        Defaults to False.
-    atol_rank : float, optional
-        Threshold below which SVD values are considered zero.
-        Defaults to ``np.finfo(A.dtype).eps``.
-    rtol_rank : float, optional
-        Threshold below which SVD values are considered zero.
-        Defaults to ``np.finfo(A.dtype).eps``.
-    atol_norm : float, optional
-        Threshold below which norm values are considered zero.
-        Defaults to ``np.finfo(A.dtype).eps``.
-    rtol_norm : float, optional
-        Threshold below which norm values are considered zero.
-        Defaults to ``np.finfo(A.dtype).eps``.
-    flatten : bool, optional
-        If True, flatten the chains. Defaults to True.
-
-    Returns
-    -------
-    list[NDArray[np.number]]
-        The Jordan chains.
-        If flatten is True, each chain is of shape (l_chain, n).
-        If flatten is False, each chain is of shape (n_chain_l, l_chain, n).
-
-    """
-    chains: list[NDArray[np.number]] = []
-    for i in range(A.shape[0], 0, -1):
-        A = A[:i, :, :]
-        chain = fixed_jordan_chains(A, atol=atol_rank, rtol=rtol_rank)
-        # filter chains which first eigenvector's norm is too small
-        norm = np.linalg.norm(chain[:, 0, :], axis=-1)
-        norm_filter = norm > get_tol(np.max(norm), rtol=rtol_norm, atol=atol_norm)
-        chain = chain[norm_filter, :, :]
-        # chain = chain / norm[norm_filter, None, None]
-        if not chain.size:
-            continue
-        if chains:
-            cut_chain = _get_space(chains, i)
-            # [n_chain_cut, l_chain, n]
-            # [n_chain, n], [1, n_chain_cut, n] -> [n_chain, n_chain_cut]
-            d = np.sum(chain[:, None, 0, :] * cut_chain[None, :, 0, :], axis=-1)
-            # [n_chain, l_chain, n]
-            chain = chain - np.sum(
-                d[:, :, None, None] * cut_chain[None, :, :, :], axis=1
-            )
-        # svd, remove duplicated chains
-        chain = np.swapaxes(chain, 0, 1)
-        u, s, _ = np.linalg.svd(chain[0, :, :], hermitian=hermitian)
-        rank = _matrix_rank_from_s(chain[0, :, :], s, atol=atol_rank, rtol=rtol_rank)
-        chain = u.T[:rank] @ chain
-        chain = np.swapaxes(chain, 0, 1)
-        # normalize chains based on the first eigenvector
-        norm = np.linalg.norm(chain[:, 0, :], axis=-1)
-        chain = chain / norm[:, None, None]
-        if chain.size:
-            chains.append(chain)
-    if flatten:
-        chains = [c for chain_ in chains for c in chain_]
-    return chains
-
-
 class MatrixFuncProtocol(Protocol):
     def __call__(
         self,
@@ -376,55 +182,351 @@ def geig_func(
     return inner
 
 
-def all_canonical_jordan_chains(
-    A: MatrixFuncProtocol,
-    multiplicities: Sequence[AlgebraicMultiplicity],
+def _jordan_chain_def_right_term(
+    A: np.ndarray[tuple[int, int, int], np.dtype[np.number]],
+    chains: np.ndarray[tuple[int, int, int], np.dtype[np.number]],
+) -> np.ndarray[tuple[int, int], np.dtype[np.number]]:
+    """
+    Get the right term of the Jordan chain definition.
+
+    Parameters
+    ----------
+    A : np.ndarray[tuple[int, int, int], np.dtype[np.number]]
+        The matrix derivatives evaluated at the eigenvalue
+        of shape (l_chain, n, n).
+    chains : np.ndarray[tuple[int, int, int], np.dtype[np.number]]
+        The Jordan chains of shape (n_chain, l_chain, n).
+
+    Returns
+    -------
+    Tuple[np.ndarray[tuple[int, int], np.dtype[np.number]]]
+        The right term of the Jordan chain definition
+        of shape (n, n).
+
+    """
+    if (
+        A.ndim == 3
+        and chains.ndim == 3
+        and (A.shape[0] == chains.shape[1])
+        and (A.shape[1] == A.shape[2] == chains.shape[2])
+    ):
+        pass
+    else:
+        raise ValueError(
+            f"Invalid shape {A.shape=}, {chains.shape=}. "
+            "A should be (l_chain, n, n) and chains should be (n_chain, l_chain, n)."
+        )
+    return -np.sum(
+        np.matmul(A[None, ...], np.flip(chains[..., None], axis=1))[..., 0]
+        / scipy.special.factorial(np.arange(A.shape[0])[:, None, None]),
+        axis=1,
+    )
+
+
+def unrestricted_jordan_chains(
+    A_func: MatrixFuncProtocol,
     /,
-    **kwargs: Any,
-) -> list[JordanChains]:
+    atol_rank: float | None = None,
+    rtol_rank: float | None = None,
+    atol_norm: float | None = None,
+    rtol_norm: float | None = None,
+    max_l_chain: int | None = None,
+) -> list[np.ndarray[tuple[int, int, int], np.dtype[np.number]]]:
+    """
+    Get the unrestricted Jordan chains of the matrix of fixed length.
+
+    Parameters
+    ----------
+    A_func : MatrixFuncProtocol
+        The matrix function which takes (λ, d) as input
+        and returns the d-th derivative of the matrix function
+        evaluated at the eigenvalue λ.
+    atol_rank : float, optional
+        Threshold below which SVD values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
+    rtol_rank : float, optional
+        Threshold below which SVD values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
+    atol_norm : float, optional
+        Threshold below which norm values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
+    rtol_norm : float, optional
+        Threshold below which norm values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
+    max_l_chain : int, optional
+        The maximum length of the Jordan chain to search for.
+        If None, stop searching when all unrestricted Jordan chains
+        are not Jordan chains, in other words,
+        the first eigenvector's norm is almost 0,
+        because in general there are infinite number of Jordan chains.
+
+    Returns
+    -------
+    np.ndarray[tuple[int, int, int], np.dtype[np.number]]
+        The list of unrestricted Jordan chains of shape (n_chain, l_chain, n).
+
+    """
+    As_list: list[np.ndarray[tuple[int, int], np.dtype[np.number]]] = []
+    chains = []
+    i = 0
+    while True:
+        A_func_res = A_func(0, len(As_list))
+        if A_func_res is None:
+            break
+        As_list.append(A_func_res)
+        As = np.stack(As_list, axis=0)
+        l_chain = As.shape[0]
+        n = As.shape[1]
+        mat = np.stack(
+            [
+                np.moveaxis(
+                    np.concat(
+                        (
+                            np.flip(
+                                As[: (j + 1), :, :]
+                                / scipy.special.factorial(
+                                    np.arange(j + 1)[:, None, None]
+                                ),
+                                axis=0,
+                            ),
+                            np.zeros(
+                                (l_chain - j - 1, n, n),
+                                dtype=As.dtype,
+                                device=As.device,
+                            ),
+                        ),
+                        axis=0,
+                    ),
+                    0,
+                    1,
+                ).reshape(n, l_chain * n)
+                for j in range(l_chain)
+            ],
+            axis=0,
+        ).reshape(l_chain * n, l_chain * n)
+        # (m*n, n_jordan_chain)
+        chain = scipy.linalg.null_space(mat, rtol_rank)
+        if chain.size == 0:
+            break
+        # (n_jordan_chain, m*n)
+        chain = np.moveaxis(chain, -1, 0)
+        # (n_jordan_chain, m, n)
+        chain = chain.reshape(chain.shape[0], l_chain, n)
+        i += 1
+        if max_l_chain is None:
+            norm = np.linalg.norm(chain[:, 0, :], axis=-1)
+            norm_filter = norm > get_tol(np.max(norm), rtol=rtol_norm, atol=atol_norm)
+            if not np.any(norm_filter):
+                break
+        elif i > max_l_chain:
+            break
+        chains.append(chain)
+    return chains
+
+
+def _get_space(
+    chains: list[NDArray[np.number]],
+    length: int,
+    /,
+) -> NDArray[np.number]:
+    """
+    Get the cut chains.
+
+    Parameters
+    ----------
+    chains : list[NDArray[np.number]]
+        The Jordan chains.
+    length : int
+        The length to cut.
+
+    Returns
+    -------
+    NDArray[np.number]
+        The cut chains of shape (n_chain, l_chain, n).
+
+    """
+    res = np.concat([chains_[:, :length, :] for chains_ in chains], axis=0)
+    return res
+
+
+@overload
+def canonoical_jordan_chains(
+    unrestricted_chains: list[np.ndarray[tuple[int, int, int], np.dtype[np.number]]],
+    /,
+    *,
+    hermitian: bool | None = ...,
+    atol_rank: float | None = ...,
+    rtol_rank: float | None = ...,
+    atol_norm: float | None = ...,
+    rtol_norm: float | None = ...,
+    flatten: Literal[False] = ...,
+) -> list[np.ndarray[tuple[int, int, int], np.dtype[np.number]]]: ...
+@overload
+def canonoical_jordan_chains(
+    unrestricted_chains: list[np.ndarray[tuple[int, int, int], np.dtype[np.number]]],
+    /,
+    *,
+    hermitian: bool | None = ...,
+    atol_rank: float | None = ...,
+    rtol_rank: float | None = ...,
+    atol_norm: float | None = ...,
+    rtol_norm: float | None = ...,
+    flatten: Literal[True] = ...,
+) -> list[np.ndarray[tuple[int, int], np.dtype[np.number]]]: ...
+def canonoical_jordan_chains(
+    unrestricted_chains: list[np.ndarray[tuple[int, int, int], np.dtype[np.number]]],
+    /,
+    *,
+    hermitian: bool | None = None,
+    atol_rank: float | None = None,
+    rtol_rank: float | None = None,
+    atol_norm: float | None = None,
+    rtol_norm: float | None = None,
+    flatten: bool = True,
+) -> (
+    list[np.ndarray[tuple[int, int], np.dtype[np.number]]]
+    | list[np.ndarray[tuple[int, int, int], np.dtype[np.number]]]
+):
+    """
+    Get the Jordan chains of the matrix.
+
+    Parameters
+    ----------
+    unrestricted_chains : np.ndarray[tuple[int, int, int], np.dtype[np.number]]
+        The list of unrestricted Jordan chains of shape (n_chain, l_chain, n).
+    hermitian : bool, optional
+        If True, `A` is assumed to be Hermitian (symmetric if real-valued),
+        enabling a more efficient method for finding singular values.
+        Defaults to False.
+    atol_rank : float, optional
+        Threshold below which SVD values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
+    rtol_rank : float, optional
+        Threshold below which SVD values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
+    atol_norm : float, optional
+        Threshold below which norm values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
+    rtol_norm : float, optional
+        Threshold below which norm values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
+    flatten : bool, optional
+        If True, flatten the chains. Defaults to True.
+
+    Returns
+    -------
+    list[NDArray[np.number]]
+        The Jordan chains.
+        If flatten is True, each chain is of shape (l_chain, n).
+        If flatten is False, each chain is of shape (n_chain_l, l_chain, n).
+
+    """
+    chains: list[NDArray[np.number]] = []
+    for chain in reversed(unrestricted_chains):
+        # filter chains which first eigenvector's norm is too small
+        norm = np.linalg.norm(chain[:, 0, :], axis=-1)
+        norm_filter = norm > get_tol(np.max(norm), rtol=rtol_norm, atol=atol_norm)
+        chain = chain[norm_filter, :, :]
+
+        # do not process empty chains
+        if not chain.size:
+            continue
+
+        # remove chains overlapping from already found longer chains
+        if chains:
+            # chains are already normalized
+            cut_chain = _get_space(chains, chain.shape[1])
+            # [n_chain_cut, l_chain, n]
+            # [n_chain, n], [1, n_chain_cut, n] -> [n_chain, n_chain_cut]
+            cut_chain_ip = np.sum(
+                chain[:, None, 0, :] * cut_chain[None, :, 0, :], axis=-1
+            )
+            # [n_chain, l_chain, n]
+            chain = chain - np.sum(
+                cut_chain_ip[:, :, None, None] * cut_chain[None, :, :, :], axis=1
+            )
+
+        # remove duplicated chains
+        chain = np.swapaxes(chain, 0, 1)
+        u, s, _ = np.linalg.svd(chain[0, :, :], hermitian=hermitian)
+        rank = _matrix_rank_from_s(chain[0, :, :], s, atol=atol_rank, rtol=rtol_rank)
+        chain = u.T[:rank] @ chain
+        chain = np.swapaxes(chain, 0, 1)
+
+        # normalize chains based on the first eigenvector
+        norm = np.linalg.norm(chain[:, 0, :], axis=-1)
+        chain = chain / norm[:, None, None]
+
+        # append the chain
+        if chain.size:
+            chains.append(chain)
+    if flatten:
+        chains = [c for chain_ in chains for c in chain_]
+    return chains
+
+
+def all_canonical_jordan_chains(
+    A_func: MatrixFuncProtocol,
+    multiplicity: AlgebraicMultiplicity,
+    /,
+    atol_rank: float | None = None,
+    rtol_rank: float | None = None,
+    atol_norm: float | None = None,
+    rtol_norm: float | None = None,
+) -> JordanChains:
     """
     Get the canonical Jordan chains of the matrix function.
 
     Parameters
     ----------
-    A : MatrixFuncProtocol
-        The matrix function.
-    multiplicities : list[Multiplicity]
-        The multiplicities of the eigenvalues.
-    **kwargs : Any
-        Additional arguments to pass to `canonoical_jordan_chains`.
+    A_func : MatrixFuncProtocol
+        The matrix function which takes (λ, d) as input
+        and returns the d-th derivative of the matrix function
+        evaluated at the eigenvalue λ.
+    multiplicity : AlgebraicMultiplicity
+        The multiplicity of the eigenvalues.
+    atol_rank : float, optional
+        Threshold below which SVD values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
+    rtol_rank : float, optional
+        Threshold below which SVD values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
+    atol_norm : float, optional
+        Threshold below which norm values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
+    rtol_norm : float, optional
+        Threshold below which norm values are considered zero.
+        Defaults to ``np.finfo(A.dtype).eps``.
 
     Returns
     -------
-    list[JordanChains]
+    JordanChains
         The canonical Jordan chains of the matrix function.
 
     """
-    results = []
-    for multiplicity in multiplicities:
-        derivatives = []
-        chains = []
-        for i in range(multiplicity.algebraic_multiplicity):
-            derivative = A(multiplicity.eigval, i)
-            if derivative is None:
-                break
-            derivatives.append(derivative)
-            chains = canonoical_jordan_chains(np.stack(derivatives, axis=0), **kwargs)
-            n_generalized_eigenvectors = np.sum([c.shape[0] for c in chains])
-            if n_generalized_eigenvectors >= multiplicity.algebraic_multiplicity:
-                if n_generalized_eigenvectors > multiplicity.algebraic_multiplicity:
-                    warnings.warn(
-                        "The number of generalized eigenvectors found "
-                        "is greater than the algebraic multiplicity. "
-                        "Consider using a larger value for `atol` or `rtol`.",
-                        RuntimeWarning,
-                        stacklevel=2,
-                    )
-                break
-        results.append(
-            JordanChains(
-                eigvals=multiplicity.eigvals,
-                chains=chains,
-            )
+    chains = canonoical_jordan_chains(
+        unrestricted_jordan_chains(
+            A_func,
+            rtol_rank=rtol_rank,
+            atol_rank=atol_rank,
+            atol_norm=atol_norm,
+            rtol_norm=rtol_norm,
+        ),
+        rtol_rank=rtol_rank,
+        atol_rank=atol_rank,
+        rtol_norm=rtol_norm,
+        atol_norm=atol_norm,
+    )
+    n_generalized_eigenvectors = np.sum([c.shape[0] for c in chains])
+    if n_generalized_eigenvectors > multiplicity.algebraic_multiplicity:
+        warnings.warn(
+            "The number of generalized eigenvectors found "
+            "is greater than the algebraic multiplicity. "
+            "Consider using a larger value for `atol` or `rtol`.",
+            RuntimeWarning,
+            stacklevel=2,
         )
-    return results
+    return JordanChains(
+        eigvals=multiplicity.eigvals,
+        chains=chains,
+    )

@@ -43,7 +43,7 @@ def test_ordinary():
     assert [c.shape[0] for c in chains[0]] == [4, 3, 2, 1]
     chains_all = all_canonical_jordan_chains(
         geig_func(A),
-        multiplicities,
+        multiplicities[0],
         rtol_norm=1e-3,
         rtol_rank=1e-3,
         atol_norm=1e-3,
@@ -76,13 +76,13 @@ def test_complicated_ordinary():
     print(multiplicities[0].geometric_multiplicity)
     chains_all = all_canonical_jordan_chains(
         geig_func(A),
-        multiplicities,
+        multiplicities[0],
         rtol_norm=1e-3,
         rtol_rank=1e-3,
         atol_norm=1e-3,
         atol_rank=1e-3,
     )
-    print(chains_all[0].chain_lengths)
+    print(chains_all.chain_lengths)
 
 
 def test_nonlinear():
@@ -90,13 +90,13 @@ def test_nonlinear():
         eigval: float, derv: int, /
     ) -> np.ndarray[tuple[int, int], np.dtype[np.number]] | None:
         x = sp.symbols("x")
-        mat = sp.Matrix([[x**3, 1, 0], [0, x, 0], [0, 0, x**2]])
+        mat = sp.Matrix([[x**2, 1, 0], [0, x, 0], [0, 0, x]])
         mat_deriv = sp.diff(mat, x, derv)
         return np.array(mat_deriv.subs(x, eigval)).astype(np.float64)
 
     chains_all = all_canonical_jordan_chains(
         f,
-        [AlgebraicMultiplicity(eigvals=np.zeros(6))],
+        AlgebraicMultiplicity(eigvals=np.zeros(4)),
         rtol_norm=1e-3,
         rtol_rank=1e-3,
         atol_norm=1e-3,
