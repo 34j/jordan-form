@@ -92,6 +92,23 @@ CanonicalJordanChains(eigval=0, chains=[array([[1., 0.],
        [0., 0.]]), array([[0., 1.]])])
 ```
 
+## CLI Usage
+
+```shell
+> jordan-form "{{x^2,-x},{0,x^2}}" 0
+Algebraic multiplicity: 4
+Geometric multiplicity: 2
+Dimension of generalized eigenspace: [2 3 4]
+Dimension of ith generalized eigenvectors: [2 1 1]
+Chain lengths: [3 1]
+Chain 0:
+[[1. 0.]
+ [0. 1.]
+ [0. 0.]]
+Chain 1:
+[[0. 1.]]
+```
+
 ## References
 
 - ["canonical set of Jordan chains" - Google Search](https://www.google.com/search?q=%22canonical+set+of+Jordan+chains%22)
