@@ -44,7 +44,53 @@ Compute jordan canonical (normal) form of (nonlinear / generalized) eigenvalue p
 
 Install this via pip (or your favourite package manager):
 
-`pip install jordan-form`
+```shell
+pip install jordan-form
+```
+
+## Usage
+
+Consider a function
+
+$$
+T(\lambda) = \begin{pmatrix}
+\lambda^2 & -\lambda \\
+0 & \lambda^2
+\end{pmatrix}
+$$
+
+which eigenvalue is `0`. (Example 1. from [Nonlinear Eivenvalue Problems](https://www.mat.tuhh.de/forschung/rep/rep174.pdf) which was from Matrix Polynomials (Computer Science and Applied Mathematics). (1982). Academic Press.)
+
+```python
+import numpy as np
+
+from jordan_form import canonical_jordan_chains
+
+
+def f(
+    eigval: float, derv: int
+) -> np.ndarray[tuple[int, int], np.dtype[np.number]] | None:
+    if derv == 0:
+        return np.array([[eigval**2, -eigval], [0, eigval**2]])
+    elif derv == 1:
+        return np.array([[2 * eigval, -1], [0, 2 * eigval]])
+    elif derv == 2:
+        return np.array([[2, 0], [0, 2]])
+    else:
+        return np.zeros((2, 2))
+
+
+chains = canonical_jordan_chains(
+    f, 0, atol_rank=1e-3, rtol_rank=1e-3, atol_norm=1e-3, rtol_norm=1e-3
+)
+print(chains)
+```
+
+```python
+CanonicalJordanChains(eigval=0, chains=[array([[1., 0.],
+       [0., 1.],
+       [0., 0.]]), array([[0., 1.]])])
+```
 
 ## References
 
