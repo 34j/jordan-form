@@ -30,6 +30,7 @@ dependencies = [
   "numpy>=2.0.2",
   "rich>=10",
   "scipy>=1.13.1",
+  "sympy>=1.14.0",
   "typer>=0.15,<1",
 ]
 urls."Bug Tracker" = "https://github.com/34j/jordan-form/issues"
@@ -47,7 +48,6 @@ matplotlib = [
 dev = [
   "pytest>=8,<9",
   "pytest-cov>=6,<7",
-  "sympy>=1.14.0",
   "matplotlib>=3.9.4",
 ]
 docs = [
