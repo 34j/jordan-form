@@ -225,6 +225,7 @@ def _jordan_chain_def_right_term(
 
 def unrestricted_jordan_chains(
     A_func: MatrixFuncProtocol,
+    eigval: float,
     /,
     atol_rank: float | None = None,
     rtol_rank: float | None = None,
@@ -241,6 +242,8 @@ def unrestricted_jordan_chains(
         The matrix function which takes (λ, d) as input
         and returns the d-th derivative of the matrix function
         evaluated at the eigenvalue λ.
+    eigval : float
+        The eigenvalue to evaluate the matrix function.
     atol_rank : float, optional
         Threshold below which SVD values are considered zero.
         Defaults to ``np.finfo(A.dtype).eps``.
@@ -263,14 +266,16 @@ def unrestricted_jordan_chains(
     Returns
     -------
     np.ndarray[tuple[int, int, int], np.dtype[np.number]]
-        The list of unrestricted Jordan chains of shape (n_chain, l_chain, n).
+        The list which contains
+        unrestricted Jordan chains of shape (n_chain, l_chain, n)
+        at the (l_chain-1)th element.
 
     """
     As_list: list[np.ndarray[tuple[int, int], np.dtype[np.number]]] = []
     chains = []
     i = 0
     while True:
-        A_func_res = A_func(0, len(As_list))
+        A_func_res = A_func(eigval, len(As_list))
         if A_func_res is None:
             break
         As_list.append(A_func_res)
@@ -424,6 +429,7 @@ def canonoical_jordan_chains(
     chains: list[NDArray[np.number]] = []
     for chain in reversed(unrestricted_chains):
         # filter chains which first eigenvector's norm is too small
+        print(chain.shape)
         norm = np.linalg.norm(chain[:, 0, :], axis=-1)
         norm_filter = norm > get_tol(np.max(norm), rtol=rtol_norm, atol=atol_norm)
         chain = chain[norm_filter, :, :]
@@ -507,6 +513,7 @@ def all_canonical_jordan_chains(
     chains = canonoical_jordan_chains(
         unrestricted_jordan_chains(
             A_func,
+            multiplicity.eigval,
             rtol_rank=rtol_rank,
             atol_rank=atol_rank,
             atol_norm=atol_norm,
