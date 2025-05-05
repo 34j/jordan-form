@@ -1,4 +1,6 @@
+import matplotlib.pyplot as plt
 import numpy as np
+import pytest
 import sympy as sp
 
 from jordan_form import (
@@ -7,6 +9,7 @@ from jordan_form import (
     group_close_eigvals,
     multiplicity,
 )
+from jordan_form.plot import plot_eigval_with_multiplicity
 
 
 def test_ordinary():
@@ -68,6 +71,38 @@ def test_complicated_ordinary():
         algebraic_multiplicity=multiplicities[0].algebraic_multiplicity,
     )
     assert list(chains_all.chain_lengths) == [3, 2]
+
+
+@pytest.mark.parametrize("pass_eigvec", [True, False])
+def test_plot(pass_eigvec: bool) -> None:
+    A = np.array(
+        [
+            [0, 0, 0, 0, -1, -1],
+            [0, -8, 4, -3, 1, -3],
+            [-3, 13, -8, 6, 2, 9],
+            [-2, 14, -7, 4, 2, 10],
+            [1, -18, 11, -11, 2, -6],
+            [-1, 19, -11, 10, -2, 7],
+        ],
+        dtype=float,
+    )
+    eigval, eigvec = np.linalg.eig(A)
+    multiplicities = multiplicity(
+        eigval,
+        eigvec if pass_eigvec else None,
+        atol_algebraic=1e-3,
+        rtol_algebraic=1e-3,
+        atol_geometric=1e-3,
+        rtol_geometric=1e-3,
+    )
+    fig, ax = plt.subplots()
+    plot_eigval_with_multiplicity(
+        multiplicities,
+        ax=ax,
+        text_filter=lambda m: m.algebraic_multiplicity > 1,
+    )
+    fig.savefig(f"tests/test_complicated_ordinary_{pass_eigvec}.png", dpi=300)
+    plt.close(fig)
 
 
 def test_nonlinear():
