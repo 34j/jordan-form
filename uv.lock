@@ -483,6 +483,7 @@ matplotlib = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "matplotlib" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "sympy" },
@@ -506,6 +507,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "matplotlib", specifier = ">=3.9.4" },
     { name = "pytest", specifier = ">=8,<9" },
     { name = "pytest-cov", specifier = ">=6,<7" },
     { name = "sympy", specifier = ">=1.14.0" },

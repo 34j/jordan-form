@@ -48,6 +48,7 @@ dev = [
   "pytest>=8,<9",
   "pytest-cov>=6,<7",
   "sympy>=1.14.0",
+  "matplotlib>=3.9.4",
 ]
 docs = [
   "furo>=2023.5.20; python_version>='3.11'",
