@@ -59,7 +59,7 @@ T(\lambda) = \begin{pmatrix}
 \end{pmatrix}
 $$
 
-which eigenvalue is `0`. (Example 1. from [Nonlinear Eivenvalue Problems](https://www.mat.tuhh.de/forschung/rep/rep174.pdf) which was from Matrix Polynomials (Computer Science and Applied Mathematics). (1982). Academic Press.)
+which eigenvalue is `0`. (Example 1. from [Nonlinear Eivenvalue Problems](https://www.mat.tuhh.de/forschung/rep/rep174.pdf) which is from Matrix Polynomials (Computer Science and Applied Mathematics). (1982). Academic Press.)
 
 ```python
 import numpy as np
