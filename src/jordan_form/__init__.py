@@ -1,8 +1,8 @@
 __version__ = "0.0.0"
 from ._jordan_chain import (
-    JordanChains,
-    all_canonical_jordan_chains,
-    canonoical_jordan_chains,
+    CanonicalJordanChains,
+    canonical_jordan_chains,
+    canonoical_jordan_chains_from_unrestricted,
     geig_func,
 )
 from ._multiplicity import (
@@ -14,10 +14,10 @@ from ._multiplicity import (
 
 __all__ = [
     "AlgebraicMultiplicity",
-    "JordanChains",
+    "CanonicalJordanChains",
     "Multiplicity",
-    "all_canonical_jordan_chains",
-    "canonoical_jordan_chains",
+    "canonical_jordan_chains",
+    "canonoical_jordan_chains_from_unrestricted",
     "geig_func",
     "group_close_eigvals",
     "multiplicity",

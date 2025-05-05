@@ -2,8 +2,7 @@ import numpy as np
 import sympy as sp
 
 from jordan_form import (
-    AlgebraicMultiplicity,
-    all_canonical_jordan_chains,
+    canonical_jordan_chains,
     geig_func,
     group_close_eigvals,
     multiplicity,
@@ -25,13 +24,14 @@ def test_ordinary():
     )
     assert multiplicities[0].algebraic_multiplicity == 10
     assert multiplicities[0].geometric_multiplicity == 4
-    chains_all = all_canonical_jordan_chains(
+    chains_all = canonical_jordan_chains(
         geig_func(A),
-        multiplicities[0],
+        multiplicities[0].eigval,
         rtol_norm=1e-3,
         rtol_rank=1e-3,
         atol_norm=1e-3,
         atol_rank=1e-3,
+        algebraic_multiplicity=multiplicities[0].algebraic_multiplicity,
     )
     assert list(chains_all.chain_lengths) == [4, 3, 2, 1]
 
@@ -58,13 +58,14 @@ def test_complicated_ordinary():
         rtol_geometric=1e-3,
     )
     print(multiplicities[0].geometric_multiplicity)
-    chains_all = all_canonical_jordan_chains(
+    chains_all = canonical_jordan_chains(
         geig_func(A),
-        multiplicities[0],
+        multiplicities[0].eigval,
         rtol_norm=1e-3,
         rtol_rank=1e-3,
         atol_norm=1e-3,
         atol_rank=1e-3,
+        algebraic_multiplicity=multiplicities[0].algebraic_multiplicity,
     )
     assert list(chains_all.chain_lengths) == [3, 2]
 
@@ -78,12 +79,13 @@ def test_nonlinear():
         mat_deriv = sp.diff(mat, x, derv)
         return np.array(mat_deriv.subs(x, eigval)).astype(np.float64)
 
-    chains_all = all_canonical_jordan_chains(
+    chains_all = canonical_jordan_chains(
         f,
-        AlgebraicMultiplicity(eigvals=np.zeros(4)),
+        0,
         rtol_norm=1e-3,
         rtol_rank=1e-3,
         atol_norm=1e-3,
         atol_rank=1e-3,
+        algebraic_multiplicity=4,
     )
     print(chains_all)

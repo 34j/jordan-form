@@ -1,21 +1,17 @@
 import warnings
 from collections.abc import Sequence
-from typing import overload
+from typing import Protocol, overload
 
 import attrs
 import numpy as np
 from numpy.typing import NDArray
 
 
-@attrs.frozen(kw_only=True)
-class AlgebraicMultiplicity:
-    eigvals: np.ndarray[tuple[int], np.dtype[np.number]]
-    """The eigenvalues of shape (algebraic_multiplicity,)."""
-
+class AlgebraicMultiplicityProtocol(Protocol):
     @property
     def eigval(self) -> float:
-        """The mean eigenvalue."""
-        return np.mean(self.eigvals, axis=0)
+        """The main eigenvalue."""
+        ...
 
     @property
     def algebraic_multiplicity(self) -> int:
@@ -25,16 +21,18 @@ class AlgebraicMultiplicity:
         The number of times the eigenvalue appears
         as a root of the characteristic polynomial.
 
+        The number of generalized eigenvectors
+        in a canonical system of Jordan chains.
+
         """
-        return self.eigvals.shape[0]
+        ...
 
 
-@attrs.frozen(kw_only=True)
-class Multiplicity(AlgebraicMultiplicity):
-    eigvecs: np.ndarray[tuple[int, int], np.dtype[np.number]]
-    """The eigenvectors of shape (n, algebraic_multiplicity)."""
-    eigvec_orthogonal: np.ndarray[tuple[int, int], np.dtype[np.number]]
-    """The orthogonal eigenvectors of shape (n, geometric_multiplicity)."""
+class MultiplicityProtocol(AlgebraicMultiplicityProtocol, Protocol):
+    @property
+    def eigvec_orthogonal(self) -> NDArray[np.number]:
+        """The orthogonal eigenvectors of shape (n, geometric_multiplicity)."""
+        ...
 
     @property
     def geometric_multiplicity(self) -> int:
@@ -45,6 +43,31 @@ class Multiplicity(AlgebraicMultiplicity):
         Less than or equal to the algebraic multiplicity.
 
         """
+        ...
+
+
+@attrs.frozen(kw_only=True)
+class AlgebraicMultiplicity(AlgebraicMultiplicityProtocol):
+    eigvals: np.ndarray[tuple[int], np.dtype[np.number]]
+    """The eigenvalues of shape (algebraic_multiplicity,)."""
+
+    @property
+    def eigval(self) -> float:
+        return np.mean(self.eigvals, axis=0)
+
+    @property
+    def algebraic_multiplicity(self) -> int:
+        return self.eigvals.shape[0]
+
+
+@attrs.frozen(kw_only=True)
+class Multiplicity(AlgebraicMultiplicity, MultiplicityProtocol):
+    eigvecs: np.ndarray[tuple[int, int], np.dtype[np.number]]
+    """The eigenvectors of shape (n, algebraic_multiplicity)."""
+    eigvec_orthogonal: np.ndarray[tuple[int, int], np.dtype[np.number]]
+
+    @property
+    def geometric_multiplicity(self) -> int:
         return self.eigvec_orthogonal.shape[1]
 
 

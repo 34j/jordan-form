@@ -8,14 +8,17 @@ import scipy.special
 from numpy.typing import NDArray
 
 from jordan_form._multiplicity import (
-    AlgebraicMultiplicity,
+    MultiplicityProtocol,
     _matrix_rank_from_s,
     get_tol,
 )
 
 
 @attrs.frozen(kw_only=True)
-class JordanChains(AlgebraicMultiplicity):
+class CanonicalJordanChains(MultiplicityProtocol):
+    """Canonical system of Jordan chains."""
+
+    eigval: float
     chains: list[np.ndarray[tuple[int, int], np.dtype[np.number]]]
     """The Jordan chains of shape (l_chain, n)."""
 
@@ -94,24 +97,15 @@ class JordanChains(AlgebraicMultiplicity):
         return len(self.chains)
 
     @property
-    def num_generalized_eigenvectors(self) -> int:
-        """The number of generalized eigenvectors."""
+    def algebraic_multiplicity(self) -> int:
         return np.sum(self.dim_ith_generalized_eigenvectors)
 
     @property
     def eigvec_orthogonal(self) -> np.ndarray[tuple[int, int], np.dtype[np.number]]:
-        """The orthogonal eigenvectors of shape (n, geometric_multiplicity)."""
         return np.stack([c[0, :] for c in self.chains], axis=1)
 
     @property
     def geometric_multiplicity(self) -> int:
-        """
-        The geometric multiplicity of the eigenvalue.
-
-        The dimension of the eigenspace of the eigenvalue.
-        Less than or equal to the algebraic multiplicity.
-
-        """
         return self.eigvec_orthogonal.shape[1]
 
 
@@ -355,7 +349,7 @@ def _get_space(
 
 
 @overload
-def canonoical_jordan_chains(
+def canonoical_jordan_chains_from_unrestricted(
     unrestricted_chains: list[np.ndarray[tuple[int, int, int], np.dtype[np.number]]],
     /,
     *,
@@ -367,7 +361,7 @@ def canonoical_jordan_chains(
     flatten: Literal[False] = ...,
 ) -> list[np.ndarray[tuple[int, int, int], np.dtype[np.number]]]: ...
 @overload
-def canonoical_jordan_chains(
+def canonoical_jordan_chains_from_unrestricted(
     unrestricted_chains: list[np.ndarray[tuple[int, int, int], np.dtype[np.number]]],
     /,
     *,
@@ -378,7 +372,7 @@ def canonoical_jordan_chains(
     rtol_norm: float | None = ...,
     flatten: Literal[True] = ...,
 ) -> list[np.ndarray[tuple[int, int], np.dtype[np.number]]]: ...
-def canonoical_jordan_chains(
+def canonoical_jordan_chains_from_unrestricted(
     unrestricted_chains: list[np.ndarray[tuple[int, int, int], np.dtype[np.number]]],
     /,
     *,
@@ -471,15 +465,16 @@ def canonoical_jordan_chains(
     return chains
 
 
-def all_canonical_jordan_chains(
+def canonical_jordan_chains(
     A_func: MatrixFuncProtocol,
-    multiplicity: AlgebraicMultiplicity,
+    eigval: float,
     /,
     atol_rank: float | None = None,
     rtol_rank: float | None = None,
     atol_norm: float | None = None,
     rtol_norm: float | None = None,
-) -> JordanChains:
+    algebraic_multiplicity: int | None = None,
+) -> CanonicalJordanChains:
     """
     Get the canonical Jordan chains of the matrix function.
 
@@ -489,8 +484,8 @@ def all_canonical_jordan_chains(
         The matrix function which takes (λ, d) as input
         and returns the d-th derivative of the matrix function
         evaluated at the eigenvalue λ.
-    multiplicity : AlgebraicMultiplicity
-        The multiplicity of the eigenvalues.
+    eigval : float
+        The eigenvalue to evaluate the matrix function.
     atol_rank : float, optional
         Threshold below which SVD values are considered zero.
         Defaults to ``np.finfo(A.dtype).eps``.
@@ -503,6 +498,11 @@ def all_canonical_jordan_chains(
     rtol_norm : float, optional
         Threshold below which norm values are considered zero.
         Defaults to ``np.finfo(A.dtype).eps``.
+    algebraic_multiplicity : int, optional
+        The algebraic multiplicity of the eigenvalue.
+        If provided, a warning is issued
+        if the number of generalized eigenvectors found
+        does not match the algebraic multiplicity.
 
     Returns
     -------
@@ -510,10 +510,10 @@ def all_canonical_jordan_chains(
         The canonical Jordan chains of the matrix function.
 
     """
-    chains = canonoical_jordan_chains(
+    chains = canonoical_jordan_chains_from_unrestricted(
         unrestricted_jordan_chains(
             A_func,
-            multiplicity.eigval,
+            eigval,
             rtol_rank=rtol_rank,
             atol_rank=atol_rank,
             atol_norm=atol_norm,
@@ -523,17 +523,21 @@ def all_canonical_jordan_chains(
         atol_rank=atol_rank,
         rtol_norm=rtol_norm,
         atol_norm=atol_norm,
+        flatten=True,
     )
     n_generalized_eigenvectors = np.sum([c.shape[0] for c in chains])
-    if n_generalized_eigenvectors > multiplicity.algebraic_multiplicity:
+    if (
+        algebraic_multiplicity is not None
+        and n_generalized_eigenvectors != algebraic_multiplicity
+    ):
         warnings.warn(
             "The number of generalized eigenvectors found "
-            "is greater than the algebraic multiplicity. "
+            "does not match the provided algebraic multiplicity. "
             "Consider using a larger value for `atol` or `rtol`.",
             RuntimeWarning,
             stacklevel=2,
         )
-    return JordanChains(
-        eigvals=multiplicity.eigvals,
+    return CanonicalJordanChains(
+        eigval=eigval,
         chains=chains,
     )

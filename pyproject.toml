@@ -38,6 +38,11 @@ urls.documentation = "https://jordan-form.readthedocs.io"
 urls.repository = "https://github.com/34j/jordan-form"
 scripts.jordan-form = "jordan_form.cli:app"
 
+[project.optional-dependencies]
+matplotlib = [
+    "matplotlib>=3.9.4",
+]
+
 [dependency-groups]
 dev = [
   "pytest>=8,<9",
