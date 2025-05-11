@@ -101,6 +101,7 @@ def test_plot(pass_eigvec: bool) -> None:
         multiplicities,
         ax=ax,
         text_filter=lambda m: m.algebraic_multiplicity > 1,
+        text_add_clue=True,
     )
     fig.savefig(f"tests/test_complicated_ordinary_{pass_eigvec}.png", dpi=300)
     plt.close(fig)
@@ -126,6 +127,6 @@ def test_nonlinear(wrong_eigval: bool) -> None:
         rtol_rank=1e-3,
         atol_norm=1e-3,
         atol_rank=1e-3,
-        algebraic_multiplicity=4,
+        algebraic_multiplicity=0 if wrong_eigval else 4,
     )
     assert list(chains.chain_lengths) == [] if wrong_eigval else [3, 1]
