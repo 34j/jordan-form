@@ -1,4 +1,4 @@
-__version__ = "0.2.0"
+__version__ = "1.0.0-rc.1"
 from ._jordan_chain import (
     CanonicalJordanChains,
     canonical_jordan_chains,
