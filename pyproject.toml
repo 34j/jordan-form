@@ -46,7 +46,7 @@ matplotlib = [
 
 [dependency-groups]
 dev = [
-  "pytest>=8,<9",
+  "pytest>=9,<10",
   "pytest-cov>=6,<7",
   "matplotlib>=3.9.4",
 ]
