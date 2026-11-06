@@ -1,5 +1,5 @@
 from collections.abc import Callable, Sequence
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,10 +7,11 @@ from matplotlib.axes import Axes
 
 from ._multiplicity import AlgebraicMultiplicityProtocol
 
-TMultiplicity = TypeVar("TMultiplicity", bound=AlgebraicMultiplicityProtocol)
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 
-def plot_eigval_with_multiplicity(
+def plot_eigval_with_multiplicity[TMultiplicity: AlgebraicMultiplicityProtocol](
     multiplicities: Sequence[TMultiplicity],
     /,
     *,
@@ -58,9 +59,7 @@ def plot_eigval_with_multiplicity(
 
     """
     ax_ = ax or plt.gca()
-    eigvals = np.stack(
-        [x for m in multiplicities for x in getattr(m, "eigvals", [m.eigval])]
-    )
+    eigvals = np.stack([x for m in multiplicities for x in getattr(m, "eigvals", [m.eigval])])
 
     # label
     label = "Eigenvalues\n(Algebraic multiplicity"
@@ -73,9 +72,7 @@ def plot_eigval_with_multiplicity(
     label += ")"
 
     # plot
-    ax_.scatter(
-        eigvals.real, eigvals.imag, marker="x", label=label, **(scatter_kwargs or {})
-    )
+    ax_.scatter(eigvals.real, eigvals.imag, marker="x", label=label, **(scatter_kwargs or {}))
 
     for m in multiplicities:
         if text_filter is not None and not text_filter(m):
@@ -84,13 +81,15 @@ def plot_eigval_with_multiplicity(
         # text
         text = f"{m.algebraic_multiplicity:g}"
         if m.algebraic_multiplicity > 1 and text_add_clue and hasattr(m, "eigvals"):
-            max_dist = np.max(np.abs(m.eigvals[:, None] - m.eigvals[None, :]))
+            eigvals_ = cast("NDArray[np.number]", m.eigvals)
+            max_dist = np.max(np.abs(eigvals_[:, None] - eigvals_[None, :]))
             text += f" ({text_format_string.format(max_dist)})"
         geometric_multiplicity = getattr(m, "geometric_multiplicity", None)
         if geometric_multiplicity is not None:
             text += f", {geometric_multiplicity:g}"
             if m.algebraic_multiplicity > 1 and text_add_clue and hasattr(m, "eigvecs"):
-                s = np.linalg.svd(m.eigvecs, compute_uv=False)
+                eigvecs = cast("NDArray[np.number]", m.eigvecs)
+                s = np.linalg.svd(eigvecs, compute_uv=False)
                 text += f" ({','.join([text_format_string.format(x) for x in s])})"
         if text_additionial is not None:
             text += f", {text_additionial(m)}"

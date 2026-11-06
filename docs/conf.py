@@ -32,10 +32,10 @@ extensions = [
 napoleon_google_docstring = False
 
 # The suffix of source filenames.
-source_suffix = [
-    ".rst",
-    ".md",
-]
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".md": "myst",
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = [
@@ -73,17 +73,15 @@ def run_apidoc(_: Any) -> None:
     docs_path = Path(__file__).parent
     module_path = docs_path.parent / "src" / "jordan_form"
 
-    apidoc.main(
-        [
-            "--force",
-            "--module-first",
-            "-o",
-            docs_path.as_posix(),
-            module_path.as_posix(),
-        ]
-    )
+    apidoc.main([
+        "--force",
+        "--module-first",
+        "-o",
+        docs_path.as_posix(),
+        module_path.as_posix(),
+    ])
 
 
 def setup(app: Sphinx) -> None:
-    """Setup sphinx."""
+    """Set up Sphinx."""
     app.connect("builder-inited", run_apidoc)

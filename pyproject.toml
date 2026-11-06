@@ -52,9 +52,34 @@ docs = [
 
 [tool.ruff]
 extend = ".venv/ruff.toml"
+lint.extend-per-file-ignores."/**/docs/conf.py" = [ "A001", "INP001" ]
+lint.extend-per-file-ignores."/**/src/jordan_form/_jordan_chain.py" = [
+  "ARG001",  # Public tolerance argument retained for API compatibility.
+  "N803",    # Matrix names intentionally follow mathematical conventions.
+  "N806",    # Matrix names intentionally follow mathematical conventions.
+  "PLR2004", # Array dimensions are clear in shape validation.
+  "PLR6104", # Avoid changing NumPy array mutation semantics.
+  "RUF002",  # Preserve en dashes in bibliographic citations.
+]
+lint.extend-per-file-ignores."/**/src/jordan_form/_multiplicity.py" = [
+  "PLR2004", # Array dimensions are clear in shape validation.
+]
+lint.extend-per-file-ignores."/**/tests/**/*" = [
+  "ANN",
+  "ARG",     # Unused function args -> fixtures nevertheless are functionally relevant...
+  "D",
+  "FBT",     # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
+  "N806",    # Matrix names intentionally follow mathematical conventions.
+  "PLR2004", # Magic value used in comparison, ...
+  "PLR6104", # Avoid changing NumPy array mutation semantics.
+  "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
+  "S404",    # subprocess is used intentionally to exercise the module entry point.
+]
 
 [tool.pyproject-fmt]
 max_supported_python = "3.14"
 
 [tool.ty]
+# NumPy's scalar/array unions produce noisy diagnostics throughout the numerical API.
+rules.invalid-argument-type = "ignore"
 terminal.error-on-warning = true
