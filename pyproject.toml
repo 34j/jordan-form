@@ -74,6 +74,7 @@ lint.extend-per-file-ignores."/**/tests/**/*" = [
   "PLR6104", # Avoid changing NumPy array mutation semantics.
   "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
   "S404",    # subprocess is used intentionally to exercise the module entry point.
+  "S603",    # subprocess is used intentionally to exercise the module entry point.
 ]
 
 [tool.pyproject-fmt]

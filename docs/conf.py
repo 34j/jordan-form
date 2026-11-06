@@ -30,6 +30,7 @@ extensions = [
     "sphinx.ext.viewcode",
 ]
 napoleon_google_docstring = False
+autodoc_mock_imports = ["matplotlib"]
 
 # The suffix of source filenames.
 source_suffix = {

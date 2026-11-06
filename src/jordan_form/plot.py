@@ -1,13 +1,15 @@
+from __future__ import annotations
+
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.axes import Axes
 
 from ._multiplicity import AlgebraicMultiplicityProtocol
 
 if TYPE_CHECKING:
+    from matplotlib.axes import Axes
     from numpy.typing import NDArray
 
 
