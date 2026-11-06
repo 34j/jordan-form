@@ -13,6 +13,7 @@ from jordan_form import (
     multiplicity,
     sympy_func,
 )
+from jordan_form._jordan_chain import canonoical_jordan_chains_from_unrestricted  # noqa: PLC2701
 from jordan_form.plot import plot_eigval_with_multiplicity
 
 
@@ -47,6 +48,16 @@ def test_matrix_function_branches() -> None:
     matrix = np.eye(2)
     matrix_func = geig_func(matrix)
     np.testing.assert_array_equal(matrix_func(0, 2), np.zeros_like(matrix))
+
+
+def test_empty_unrestricted_chain() -> None:
+    chains = canonoical_jordan_chains_from_unrestricted([np.zeros((1, 1, 1))])
+    assert chains == []
+
+
+def test_algebraic_multiplicity_warning() -> None:
+    with pytest.warns(RuntimeWarning, match="does not match"):
+        canonical_jordan_chains(geig_func(np.eye(1)), 0, algebraic_multiplicity=2)
 
 
 def test_complicated_ordinary():
