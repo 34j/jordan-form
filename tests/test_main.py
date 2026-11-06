@@ -43,6 +43,12 @@ def test_ordinary():
     assert list(chains.chain_lengths) == [4, 3, 2, 1]
 
 
+def test_matrix_function_branches() -> None:
+    matrix = np.eye(2)
+    matrix_func = geig_func(matrix)
+    np.testing.assert_array_equal(matrix_func(0, 2), np.zeros_like(matrix))
+
+
 def test_complicated_ordinary():
     A = np.array(
         [
@@ -75,6 +81,20 @@ def test_complicated_ordinary():
         algebraic_multiplicity=multiplicities[0].algebraic_multiplicity,
     )
     assert list(chains.chain_lengths) == [3, 2]
+
+
+def test_multiplicity_validation() -> None:
+    with pytest.raises(ValueError, match="1D"):
+        multiplicity(np.empty((1, 1)))
+    with pytest.raises(ValueError, match="2D"):
+        multiplicity(np.empty(1), np.empty((1, 1, 1)))
+    with pytest.raises(ValueError, match="should be equal"):
+        multiplicity(np.empty(1), np.empty((1, 2)))
+
+
+def test_group_close_warning() -> None:
+    with pytest.warns(RuntimeWarning, match="too large or too small"):
+        group_close_eigvals([0, 0.5, 1], atol=0.6, rtol=0)
 
 
 @pytest.mark.parametrize("pass_eigvec", [True, False])
