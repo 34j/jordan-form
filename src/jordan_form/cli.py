@@ -1,6 +1,6 @@
 import sympy as sp
 import typer
-from rich import print
+from rich import print as rich_print
 from sympy.parsing.mathematica import parse_mathematica
 
 from ._jordan_chain import canonical_jordan_chains, sympy_func
@@ -11,7 +11,7 @@ app = typer.Typer()
 @app.command()
 def main(expr: str, eigval: float, rtol: float = 1e-3, atol: float = 1e-3) -> None:
     """
-    Main function to run the script.
+    Run the script.
 
     Parameters
     ----------
@@ -34,14 +34,13 @@ def main(expr: str, eigval: float, rtol: float = 1e-3, atol: float = 1e-3) -> No
         atol_norm=atol,
         atol_rank=atol,
     )
-    print(f"Algebraic multiplicity: {chains.algebraic_multiplicity}")
-    print(f"Geometric multiplicity: {chains.geometric_multiplicity}")
-    print(f"Dimension of generalized eigenspace: {chains.dim_generalized_eigenspace}")
-    print(
-        "Dimension of ith generalized eigenvectors: "
-        f"{chains.dim_ith_generalized_eigenvectors}"
+    rich_print(f"Algebraic multiplicity: {chains.algebraic_multiplicity}")
+    rich_print(f"Geometric multiplicity: {chains.geometric_multiplicity}")
+    rich_print(f"Dimension of generalized eigenspace: {chains.dim_generalized_eigenspace}")
+    rich_print(
+        f"Dimension of ith generalized eigenvectors: {chains.dim_ith_generalized_eigenvectors}"
     )
-    print(f"Chain lengths: {chains.chain_lengths}")
+    rich_print(f"Chain lengths: {chains.chain_lengths}")
     for i, chain in enumerate(chains.chains):
-        print(f"Chain {i}:")
-        print(chain)
+        rich_print(f"Chain {i}:")
+        rich_print(chain)

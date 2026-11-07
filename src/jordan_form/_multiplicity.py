@@ -1,6 +1,5 @@
 import warnings
-from collections.abc import Sequence
-from typing import Protocol, overload
+from typing import Any, Protocol, overload
 
 import attrs
 import numpy as np
@@ -47,7 +46,7 @@ class MultiplicityProtocol(AlgebraicMultiplicityProtocol, Protocol):
 
 
 @attrs.frozen(kw_only=True)
-class AlgebraicMultiplicity(AlgebraicMultiplicityProtocol):
+class AlgebraicMultiplicity:
     eigvals: np.ndarray[tuple[int], np.dtype[np.number]]
     """The eigenvalues of shape (algebraic_multiplicity,)."""
 
@@ -61,7 +60,7 @@ class AlgebraicMultiplicity(AlgebraicMultiplicityProtocol):
 
 
 @attrs.frozen(kw_only=True)
-class Multiplicity(AlgebraicMultiplicity, MultiplicityProtocol):
+class Multiplicity(AlgebraicMultiplicity):
     eigvecs: np.ndarray[tuple[int, int], np.dtype[np.number]]
     """The eigenvectors of shape (n, algebraic_multiplicity)."""
     eigvec_orthogonal: np.ndarray[tuple[int, int], np.dtype[np.number]]
@@ -72,12 +71,12 @@ class Multiplicity(AlgebraicMultiplicity, MultiplicityProtocol):
 
 
 def get_tol(
-    base: NDArray[np.floating],
+    base: Any,
     /,
     *,
-    rtol: NDArray[np.floating] | None = None,
-    atol: NDArray[np.floating] | None = None,
-) -> NDArray[np.floating]:
+    rtol: Any = None,
+    atol: Any = None,
+) -> Any:
     if rtol is None:
         rtol = np.finfo(base.dtype).eps
     if atol is None:
@@ -86,7 +85,7 @@ def get_tol(
 
 
 def group_close_eigvals(
-    eigvals: Sequence[float],
+    eigvals: Any,
     /,
     *,
     atol: float | None = None,
@@ -130,9 +129,7 @@ def group_close_eigvals(
             elif j in eigval_left_index:
                 eigval_left_index.remove(j)
             else:
-                warnings.warn(
-                    "atol is too large or too small.", RuntimeWarning, stacklevel=2
-                )
+                warnings.warn("atol is too large or too small.", RuntimeWarning, stacklevel=2)
                 continue
             s.append(j)
         result.append(s)
@@ -140,14 +137,14 @@ def group_close_eigvals(
 
 
 def _matrix_rank_from_s(
-    M: NDArray[np.number],
+    matrix: NDArray[np.number],
     s: NDArray[np.floating],
     /,
     *,
-    atol: NDArray[np.floating] | None = None,
-    rtol: NDArray[np.floating] | None = None,
+    atol: Any = None,
+    rtol: Any = None,
 ) -> int:
-    tol = get_tol(s.max() * max(M.shape[-2:]), rtol=rtol, atol=atol)
+    tol = get_tol(s.max() * max(matrix.shape[-2:]), rtol=rtol, atol=atol)
     return np.count_nonzero(s > tol, axis=-1)
 
 
@@ -163,7 +160,7 @@ def multiplicity(
     rtol_geometric: float | None = ...,
 ) -> list[Multiplicity]: ...
 @overload
-def multiplicity(  # type: ignore
+def multiplicity(
     eigvals: NDArray[np.number],
     eigvecs: None = ...,
     /,
@@ -212,6 +209,11 @@ def multiplicity(
     int
         The multiplicity of the eigenvalue.
 
+    Raises
+    ------
+    ValueError
+        If the eigenvalues or eigenvectors have an unsupported shape.
+
     """
     if eigvals.ndim != 1:
         raise ValueError("eigval should be 1D array.")
@@ -219,25 +221,21 @@ def multiplicity(
         if eigvecs.ndim != 2:
             raise ValueError("eigvec should be 2D array.")
         if eigvals.shape[0] != eigvecs.shape[1]:
-            raise ValueError(
-                f"{eigvals.shape[0]=} should be equal to {eigvecs.shape[1]=}."
-            )
+            raise ValueError(f"{eigvals.shape[0]=} should be equal to {eigvecs.shape[1]=}.")
     groups = group_close_eigvals(eigvals, atol=atol_algebraic, rtol=rtol_algebraic)
     result: list[Multiplicity] | list[AlgebraicMultiplicity] = []
     for group in groups:
         eigvals_group = eigvals[group]
         if eigvecs is None:
             result.append(
-                AlgebraicMultiplicity(  # type: ignore
+                AlgebraicMultiplicity(
                     eigvals=eigvals_group,
                 )
             )
         else:
             eigvecs_group = eigvecs[:, group]
             u, s, _ = np.linalg.svd(eigvecs_group)
-            rank = _matrix_rank_from_s(
-                eigvecs_group, s, atol=atol_geometric, rtol=rtol_geometric
-            )
+            rank = _matrix_rank_from_s(eigvecs_group, s, atol=atol_geometric, rtol=rtol_geometric)
             eigvec_orthogonal = u[:, :rank]
             result.append(
                 Multiplicity(
@@ -250,7 +248,7 @@ def multiplicity(
         result.sort(key=lambda x: x.algebraic_multiplicity, reverse=True)
     else:
         result.sort(
-            key=lambda x: (x.algebraic_multiplicity, x.geometric_multiplicity),  # type: ignore
+            key=lambda x: (x.algebraic_multiplicity, x.geometric_multiplicity),
             reverse=True,
         )
     return result
