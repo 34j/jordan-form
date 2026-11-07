@@ -207,6 +207,8 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+tests/**/*.png
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
