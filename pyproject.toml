@@ -1,175 +1,86 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = [ "setuptools" ]
+requires = [ "setuptools>=77.0.3" ]
 
 [project]
 name = "jordan-form"
 version = "1.0.0"
 description = "Compute jordan canonical (normal) form of (nonlinear / generalized) eigenvalue problem"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
-  { name = "34j", email = "34j.95a2p@simplelogin.com" },
+  { name = "34j" },
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 classifiers = [
   "Development Status :: 2 - Pre-Alpha",
   "Intended Audience :: Developers",
   "Natural Language :: English",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Software Development :: Libraries",
 ]
-
 dependencies = [
-  "attrs>=25.3.0",
+  "attrs>=25.3",
   "numpy>=2.0.2",
   "rich>=10",
   "scipy>=1.13.1",
-  "sympy>=1.14.0",
+  "sympy>=1.14",
   "typer>=0.15,<1",
 ]
+optional-dependencies.matplotlib = [ "matplotlib>=3.9.4" ]
 urls."Bug Tracker" = "https://github.com/34j/jordan-form/issues"
 urls.Changelog = "https://github.com/34j/jordan-form/blob/main/CHANGELOG.md"
 urls.documentation = "https://jordan-form.readthedocs.io"
 urls.repository = "https://github.com/34j/jordan-form"
 scripts.jordan-form = "jordan_form.cli:app"
 
-[project.optional-dependencies]
-matplotlib = [
-    "matplotlib>=3.9.4",
-]
-
 [dependency-groups]
 dev = [
-  "pytest>=9,<10",
-  "pytest-cov>=6,<7",
-  "matplotlib>=3.9.4",
+  "coverage",
+  "packaging-34j[test]",
+  "pytest",
+  "pytest-cov",
+  "ty",
 ]
 docs = [
-  "furo>=2023.5.20; python_version>='3.11'",
-  "myst-parser>=0.16; python_version>='3.11'",
-  "sphinx>=4; python_version>='3.11'",
-  "sphinx-autobuild>=2025,<2026; python_version>='3.11'",
+  "packaging-34j[docs]",
 ]
 
 [tool.ruff]
-line-length = 88
-lint.select = [
-  "B",   # flake8-bugbear
-  "D",   # flake8-docstrings
-  "C4",  # flake8-comprehensions
-  "S",   # flake8-bandit
-  "F",   # pyflake
-  "E",   # pycodestyle
-  "W",   # pycodestyle
-  "UP",  # pyupgrade
-  "I",   # isort
-  "RUF", # ruff specific
+extend = ".venv/ruff.toml"
+lint.extend-per-file-ignores."/**/docs/conf.py" = [ "A001", "INP001" ]
+lint.extend-per-file-ignores."/**/src/jordan_form/_jordan_chain.py" = [
+  "ARG001",  # Public tolerance argument retained for API compatibility.
+  "N803",    # Matrix names intentionally follow mathematical conventions.
+  "N806",    # Matrix names intentionally follow mathematical conventions.
+  "PLR2004", # Array dimensions are clear in shape validation.
+  "PLR6104", # Avoid changing NumPy array mutation semantics.
+  "RUF002",  # Preserve en dashes in bibliographic citations.
 ]
-lint.ignore = [
-  "D203", # 1 blank line required before class docstring
-  "D212", # Multi-line docstring summary should start at the first line
-  "D100", # Missing docstring in public module
-  "D104", # Missing docstring in public package
-  "D107", # Missing docstring in `__init__`
-  "D401", # First line of docstring should be in imperative mood
-  "RUF002",
-  "D205"
+lint.extend-per-file-ignores."/**/src/jordan_form/_multiplicity.py" = [
+  "PLR2004", # Array dimensions are clear in shape validation.
 ]
-lint.per-file-ignores."conftest.py" = [ "D100" ]
-lint.per-file-ignores."docs/conf.py" = [ "D100" ]
-lint.per-file-ignores."setup.py" = [ "D100" ]
-lint.per-file-ignores."tests/**/*" = [
-  "D100",
-  "D101",
-  "D102",
-  "D103",
-  "D104",
-  "S101",
-]
-lint.isort.known-first-party = [ "jordan_form", "tests" ]
-
-[tool.pytest.ini_options]
-addopts = """\
-    -v
-    -Wdefault
-    --cov=jordan_form
-    --cov-report=term
-    --cov-report=xml
-    """
-pythonpath = [ "src" ]
-
-[tool.coverage.run]
-branch = true
-
-[tool.coverage.report]
-exclude_lines = [
-  "pragma: no cover",
-  "@overload",
-  "if TYPE_CHECKING",
-  "raise NotImplementedError",
-  'if __name__ == "__main__":',
+lint.extend-per-file-ignores."/**/tests/**/*" = [
+  "ANN",
+  "ARG",     # Unused function args -> fixtures nevertheless are functionally relevant...
+  "D",
+  "FBT",     # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
+  "N806",    # Matrix names intentionally follow mathematical conventions.
+  "PLR2004", # Magic value used in comparison, ...
+  "PLR6104", # Avoid changing NumPy array mutation semantics.
+  "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
+  "S404",    # subprocess is used intentionally to exercise the module entry point.
+  "S603",    # subprocess is used intentionally to exercise the module entry point.
 ]
 
-[tool.mypy]
-check_untyped_defs = true
-disallow_any_generics = true
-disallow_incomplete_defs = true
-disallow_untyped_defs = true
-mypy_path = "src/"
-no_implicit_optional = true
-show_error_codes = true
-warn_unreachable = true
-warn_unused_ignores = true
-exclude = [
-  'docs/.*',
-  'setup.py',
-]
+[tool.pyproject-fmt]
+max_supported_python = "3.14"
 
-[[tool.mypy.overrides]]
-module = "tests.*"
-allow_untyped_defs = true
-
-[[tool.mypy.overrides]]
-module = "docs.*"
-ignore_errors = true
-
-[tool.semantic_release]
-version_toml = [ "pyproject.toml:project.version" ]
-version_variables = [
-  "src/jordan_form/__init__.py:__version__",
-  "docs/conf.py:release",
-]
-build_command = """
-pip install uv
-uv lock
-git add uv.lock
-uv build
-"""
-
-[tool.semantic_release.changelog]
-exclude_commit_patterns = [
-  '''chore(?:\([^)]*?\))?: .+''',
-  '''ci(?:\([^)]*?\))?: .+''',
-  '''refactor(?:\([^)]*?\))?: .+''',
-  '''style(?:\([^)]*?\))?: .+''',
-  '''test(?:\([^)]*?\))?: .+''',
-  '''build\((?!deps\): .+)''',
-  '''Merged? .*''',
-  '''Initial [Cc]ommit.*''', # codespell:ignore
-]
-
-[tool.semantic_release.changelog.environment]
-keep_trailing_newline = true
-
-[tool.semantic_release.branches.main]
-match = "main"
-
-[tool.semantic_release.branches.noop]
-match = "(?!main$)"
-prerelease = true
+[tool.ty]
+# NumPy's scalar/array unions produce noisy diagnostics throughout the numerical API.
+rules.invalid-argument-type = "ignore"
+terminal.error-on-warning = true
