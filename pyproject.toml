@@ -27,7 +27,7 @@ dependencies = [
   "attrs>=25.3",
   "numpy>=2.0.2",
   "rich>=10",
-  "scipy>=1.13.1",
+  "scipy>=1.18.1",
   "sympy>=1.14",
   "typer>=0.15,<1",
 ]
