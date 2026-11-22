@@ -31,7 +31,7 @@ dependencies = [
   "sympy>=1.14",
   "typer>=0.15,<1",
 ]
-optional-dependencies.matplotlib = [ "matplotlib>=3.9.4" ]
+optional-dependencies.matplotlib = [ "matplotlib>=3.11.2" ]
 urls."Bug Tracker" = "https://github.com/34j/jordan-form/issues"
 urls.Changelog = "https://github.com/34j/jordan-form/blob/main/CHANGELOG.md"
 urls.documentation = "https://jordan-form.readthedocs.io"
